@@ -22,7 +22,7 @@ pipeline {
         stage('📦 Install Dependencies') {
             steps {
                 echo "📦 npm packages суулгаж байна..."
-                sh 'npm ci'
+                sh 'npm install'
             }
         }
 
