@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DeployWatch — CI/CD Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #080c10;
+    --bg2: #0d1117;
+    --bg3: #161b22;
+    --border: #21262d;
+    --green: #39d353;
+    --yellow: #f0c53f;
+    --red: #f85149;
+    --blue: #58a6ff;
+    --text: #e6edf3;
+    --text-dim: #8b949e;
+    --text-muted: #484f58;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: 'JetBrains Mono', monospace; min-height: 100vh;
+  }
+  body::before {
+    content:''; position:fixed; inset:0;
+    background-image:
+      linear-gradient(rgba(57,211,83,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(57,211,83,0.03) 1px, transparent 1px);
+    background-size:40px 40px; pointer-events:none; z-index:0;
+  }
+  .container { position:relative; z-index:1; max-width:1300px; margin:0 auto; padding:24px; }
+
+  header { display:flex; align-items:center; justify-content:space-between; margin-bottom:32px; padding-bottom:20px; border-bottom:1px solid var(--border); }
+  .logo { display:flex; align-items:center; gap:12px; }
+  .logo-icon { width:36px; height:36px; background:var(--green); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .logo-text { font-family:'Syne',sans-serif; font-size:20px; font-weight:800; }
+  .logo-text span { color:var(--green); }
+  .header-right { display:flex; align-items:center; gap:16px; }
+  .live-badge { display:flex; align-items:center; gap:6px; font-size:11px; color:var(--green); text-transform:uppercase; letter-spacing:1px; }
+  .live-dot { width:7px; height:7px; background:var(--green); border-radius:50%; animation:pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(57,211,83,0.4)} 50%{opacity:0.7;box-shadow:0 0 0 6px rgba(57,211,83,0)} }
+  .timestamp { font-size:11px; color:var(--text-muted); }
+
+  .status-banner {
+    background:linear-gradient(135deg,rgba(57,211,83,0.08),rgba(57,211,83,0.02));
+    border:1px solid rgba(57,211,83,0.2); border-radius:10px; padding:16px 24px;
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:24px;
+  }
+  .status-main { display:flex; align-items:center; gap:12px; }
+  .status-text .label { font-size:11px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px; }
+  .status-text .value { font-family:'Syne',sans-serif; font-size:18px; font-weight:700; color:var(--green); }
+  .env-badge { font-family:'Syne',sans-serif; font-size:20px; font-weight:700; color:var(--green); }
+
+  .grid { display:grid; grid-template-columns:repeat(12,1fr); gap:16px; }
+  .col-3 { grid-column:span 3; }
+  .col-6 { grid-column:span 6; }
+  .col-12 { grid-column:span 12; }
+  @media(max-width:900px) { .col-3,.col-6 { grid-column:span 12; } }
+
+  .card { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:20px; transition:border-color 0.2s; }
+  .card:hover { border-color:#30363d; }
+  .card-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .card-title { font-size:11px; text-transform:uppercase; letter-spacing:1.5px; color:var(--text-muted); }
+  .card-badge { font-size:10px; padding:2px 8px; border-radius:20px; text-transform:uppercase; }
+  .badge-green { background:rgba(57,211,83,0.15); color:var(--green); }
+  .badge-yellow { background:rgba(240,197,63,0.15); color:var(--yellow); }
+  .badge-blue { background:rgba(88,166,255,0.15); color:var(--blue); }
+  .badge-red { background:rgba(248,81,73,0.15); color:var(--red); }
+
+  .stat-value { font-family:'Syne',sans-serif; font-size:26px; font-weight:800; line-height:1; margin-bottom:4px; }
+  .stat-label { font-size:12px; color:var(--text-dim); }
+  .stat-sub { font-size:11px; margin-top:8px; color:var(--text-muted); }
+
+  .version-row { display:flex; justify-content:space-between; align-items:center; padding:8px 12px; background:var(--bg3); border-radius:6px; font-size:12px; margin-bottom:6px; }
+  .version-row .key { color:var(--text-muted); }
+  .version-row .val { color:var(--text); font-weight:500; }
+  .green { color:var(--green) !important; }
+  .blue  { color:var(--blue)  !important; }
+  .yellow{ color:var(--yellow)!important; }
+  .red   { color:var(--red)   !important; }
+
+  .pipeline-wrap { position:relative; padding:8px 0; }
+  .pipeline-line { position:absolute; top:26px; left:18px; right:18px; height:2px; background:var(--border); z-index:0; }
+  .pipeline-line-fill { height:100%; background:linear-gradient(90deg,var(--green),var(--green)); transition:width 1s ease; }
+  .pipeline { display:flex; position:relative; z-index:1; }
+  .stage { flex:1; text-align:center; }
+  .stage-icon { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; margin:0 auto 6px; border:2px solid var(--border); background:var(--bg3); }
+  .stage-icon.done { background:rgba(57,211,83,0.15); border-color:var(--green); }
+  .stage-icon.running { background:rgba(240,197,63,0.15); border-color:var(--yellow); animation:spinPulse 1.5s infinite; }
+  @keyframes spinPulse { 0%,100%{box-shadow:0 0 0 0 rgba(240,197,63,0.3)} 50%{box-shadow:0 0 0 6px rgba(240,197,83,0)} }
+  .stage-name { font-size:10px; color:var(--text-dim); }
+  .stage-time { font-size:9px; color:var(--text-muted); margin-top:2px; }
+
+  .progress-label { display:flex; justify-content:space-between; font-size:10px; color:var(--text-muted); margin-bottom:4px; }
+  .progress-bar { height:4px; background:var(--border); border-radius:2px; overflow:hidden; margin-bottom:8px; }
+  .progress-fill { height:100%; border-radius:2px; transition:width 0.8s ease; }
+  .fill-green { background:var(--green); }
+  .fill-blue  { background:var(--blue); }
+  .fill-yellow{ background:var(--yellow); }
+
+  .log-item { display:flex; gap:12px; padding:10px 12px; background:var(--bg3); border-radius:6px; font-size:11px; border-left:3px solid transparent; margin-bottom:8px; }
+  .log-item.success { border-left-color:var(--green); }
+  .log-item.warning { border-left-color:var(--yellow); }
+  .log-item.error   { border-left-color:var(--red); }
+  .log-body { flex:1; }
+  .log-msg  { color:var(--text); margin-bottom:2px; }
+  .log-meta { color:var(--text-muted); font-size:10px; }
+
+  footer { margin-top:24px; padding-top:16px; border-top:1px solid var(--border); display:flex; justify-content:space-between; font-size:11px; color:var(--text-muted); }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🚀</div>
+      <div class="logo-text">Deploy<span>Watch</span></div>
+    </div>
+    <div class="header-right">
+      <div class="live-badge"><div class="live-dot"></div>Live</div>
+      <div class="timestamp" id="clock">--:--:--</div>
+    </div>
+  </header>
+
+  <div class="status-banner">
+    <div class="status-main">
+      <div style="font-size:22px">✅</div>
+      <div class="status-text">
+        <div class="label">System Status</div>
+        <div class="value">All Systems Operational</div>
+      </div>
+    </div>
+    <div style="text-align:right">
+      <div style="font-size:11px;color:var(--text-muted)">Environment</div>
+      <div class="env-badge">{{ENVIRONMENT}}</div>
+    </div>
+  </div>
+
+  <div class="grid">
+
+    <!-- 4 stat cards -->
+    <div class="card col-3">
+      <div class="card-header"><div class="card-title">Deploy Status</div><div class="card-badge badge-green">SUCCESS</div></div>
+      <div class="stat-value green">✓ Live</div>
+      <div class="stat-label">Production</div>
+      <div class="stat-sub">Build #{{BUILD_NUMBER}}</div>
+    </div>
+
+    <div class="card col-3">
+      <div class="card-header"><div class="card-title">Version</div><div class="card-badge badge-blue">STABLE</div></div>
+      <div class="stat-value blue" style="font-size:22px">{{VERSION}}</div>
+      <div class="stat-label">Current release</div>
+      <div class="stat-sub">Branch: {{GIT_BRANCH}}</div>
+    </div>
+
+    <div class="card col-3">
+      <div class="card-header"><div class="card-title">Git Commit</div><div class="card-badge badge-yellow">HEAD</div></div>
+      <div class="stat-value yellow" style="font-size:20px">{{GIT_COMMIT}}</div>
+      <div class="stat-label">{{GIT_BRANCH}}</div>
+      <div class="stat-sub" style="word-break:break-all;font-size:10px">{{DOCKER_IMAGE}}</div>
+    </div>
+
+    <div class="card col-3">
+      <div class="card-header"><div class="card-title">Last Deploy</div><div class="card-badge badge-green">DONE</div></div>
+      <div class="stat-value" id="deploy-time" style="font-size:18px">--:--</div>
+      <div class="stat-label" id="deploy-date">{{BUILD_DATE}}</div>
+      <div class="stat-sub" id="uptime-val">Uptime: loading...</div>
+    </div>
+
+    <!-- Pipeline -->
+    <div class="card col-12">
+      <div class="card-header">
+        <div class="card-title">Jenkins Pipeline · Build #{{BUILD_NUMBER}} · {{GIT_BRANCH}}</div>
+        <div class="card-badge badge-green" id="pipeline-badge">COMPLETED</div>
+      </div>
+      <div class="pipeline-wrap">
+        <div class="pipeline-line"><div class="pipeline-line-fill" id="pipeline-fill" style="width:100%"></div></div>
+        <div class="pipeline" id="pipeline-stages">
+          <div class="stage"><div class="stage-icon done">✓</div><div class="stage-name">Checkout</div><div class="stage-time">12s</div></div>
+          <div class="stage"><div class="stage-icon done">✓</div><div class="stage-name">Install</div><div class="stage-time">48s</div></div>
+          <div class="stage"><div class="stage-icon done">✓</div><div class="stage-name">Test</div><div class="stage-time">1m 22s</div></div>
+          <div class="stage"><div class="stage-icon done">✓</div><div class="stage-name">Build</div><div class="stage-time">55s</div></div>
+          <div class="stage"><div class="stage-icon done">✓</div><div class="stage-name">Docker</div><div class="stage-time">1m 05s</div></div>
+          <div class="stage"><div class="stage-icon done">✓</div><div class="stage-name">Deploy</div><div class="stage-time">30s</div></div>
+          <div class="stage"><div class="stage-icon done">✓</div><div class="stage-name">Health</div><div class="stage-time">10s</div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Server + Metrics -->
+    <div class="card col-6">
+      <div class="card-header"><div class="card-title">Server Info & Metrics</div><div class="card-badge badge-green">ONLINE</div></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:14px">
+        <div class="version-row"><span class="key">Host</span><span class="val" id="host-val">{{ENVIRONMENT}}-server</span></div>
+        <div class="version-row"><span class="key">Env</span><span class="val green">{{ENVIRONMENT}}</span></div>
+        <div class="version-row"><span class="key">OS</span><span class="val">Ubuntu 22.04</span></div>
+        <div class="version-row"><span class="key">Docker</span><span class="val blue">v24.0.5</span></div>
+        <div class="version-row"><span class="key">Node.js</span><span class="val">v20.11.0</span></div>
+        <div class="version-row"><span class="key">Jenkins</span><span class="val">2.440.1</span></div>
+      </div>
+      <div class="progress-label"><span>CPU</span><span id="cpu-val">--%</span></div>
+      <div class="progress-bar"><div class="progress-fill fill-blue" id="cpu-bar" style="width:0%"></div></div>
+      <div class="progress-label"><span>Memory</span><span id="mem-val">--%</span></div>
+      <div class="progress-bar"><div class="progress-fill fill-green" id="mem-bar" style="width:0%"></div></div>
+      <div class="progress-label"><span>Disk</span><span id="disk-val">--%</span></div>
+      <div class="progress-bar"><div class="progress-fill fill-yellow" id="disk-bar" style="width:0%"></div></div>
+    </div>
+
+    <!-- Deploy History -->
+    <div class="card col-6">
+      <div class="card-header"><div class="card-title">Recent Deployments</div><div class="card-badge badge-blue">HISTORY</div></div>
+      <div class="log-item success">
+        <div>✅</div>
+        <div class="log-body">
+          <div class="log-msg">Build #{{BUILD_NUMBER}} — {{VERSION}} deployed ← Current</div>
+          <div class="log-meta">{{BUILD_DATE}} · {{GIT_BRANCH}} · {{GIT_COMMIT}}</div>
+        </div>
+      </div>
+      <div class="log-item success">
+        <div>✅</div>
+        <div class="log-body">
+          <div class="log-msg" id="prev-build-msg">Previous build — deployed</div>
+          <div class="log-meta">branch: main · auto deploy via Jenkins</div>
+        </div>
+      </div>
+      <div class="log-item warning">
+        <div>⚠️</div>
+        <div class="log-body">
+          <div class="log-msg">Tests warning — 2 skipped</div>
+          <div class="log-meta">branch: hotfix · manual trigger</div>
+        </div>
+      </div>
+      <div class="log-item error">
+        <div>❌</div>
+        <div class="log-body">
+          <div class="log-msg">Docker build failed — image not found</div>
+          <div class="log-meta">branch: feature/auth · build aborted</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Detail row -->
+    <div class="card col-12">
+      <div class="card-header"><div class="card-title">Full Deployment Details</div><div class="card-badge badge-blue">INFO</div></div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px">
+        <div>
+          <div class="version-row"><span class="key">Version</span><span class="val green">{{VERSION}}</span></div>
+          <div class="version-row"><span class="key">Build #</span><span class="val">#{{BUILD_NUMBER}}</span></div>
+          <div class="version-row"><span class="key">Env</span><span class="val blue">{{ENVIRONMENT}}</span></div>
+        </div>
+        <div>
+          <div class="version-row"><span class="key">Branch</span><span class="val green">{{GIT_BRANCH}}</span></div>
+          <div class="version-row"><span class="key">Commit</span><span class="val">{{GIT_COMMIT}}</span></div>
+          <div class="version-row"><span class="key">Pipeline</span><span class="val blue">Jenkins</span></div>
+        </div>
+        <div>
+          <div class="version-row"><span class="key">Image</span><span class="val" style="font-size:10px">{{DOCKER_IMAGE}}</span></div>
+          <div class="version-row"><span class="key">Registry</span><span class="val blue">Docker Hub</span></div>
+          <div class="version-row"><span class="key">Container</span><span class="val green">Running ✓</span></div>
+        </div>
+        <div>
+          <div class="version-row"><span class="key">Port</span><span class="val">3000 → 80</span></div>
+          <div class="version-row"><span class="key">Health</span><span class="val green">/health ✓</span></div>
+          <div class="version-row"><span class="key">Uptime</span><span class="val yellow" id="uptime-detail">loading...</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <footer>
+    <span>DeployWatch · Node.js + Docker + Jenkins CI/CD · Build #{{BUILD_NUMBER}} · {{VERSION}}</span>
+    <span id="footer-time"></span>
+  </footer>
+</div>
+
+<script>
+  // Clock
+  function tick() {
+    const now = new Date();
+    document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', {hour12:false});
+    document.getElementById('footer-time').textContent = now.toLocaleString('en-US', {year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
+  }
+  setInterval(tick, 1000); tick();
+
+  // Build date parse
+  try {
+    const bd = new Date('{{BUILD_DATE}}');
+    if (!isNaN(bd.getTime())) {
+      document.getElementById('deploy-time').textContent = bd.toLocaleTimeString('en-US',{hour12:false});
+      document.getElementById('deploy-date').textContent = bd.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+    }
+  } catch(e){}
+
+  // Fetch live metrics
+  async function fetchMetrics() {
+    try {
+      const r = await fetch('/api/metrics');
+      if (!r.ok) throw 0;
+      const m = await r.json();
+      set('cpu-val', m.cpu.usage+'%'); set('cpu-bar', null, m.cpu.usage);
+      set('mem-val', m.memory.percent+'%'); set('mem-bar', null, m.memory.percent);
+      set('disk-val', m.disk.percent+'%'); set('disk-bar', null, m.disk.percent);
+    } catch(e) {
+      // Fallback simulate
+      const c = 20+Math.floor(Math.random()*40), m = 50+Math.floor(Math.random()*25);
+      set('cpu-val',c+'%'); set('cpu-bar',null,c);
+      set('mem-val',m+'%'); set('mem-bar',null,m);
+      set('disk-val','42%'); set('disk-bar',null,42);
+    }
+  }
+
+  // Fetch deployment info (uptime)
+  async function fetchDeployment() {
+    try {
+      const r = await fetch('/api/deployment');
+      if (!r.ok) throw 0;
+      const d = await r.json();
+      const h = Math.floor(d.uptime/3600), m = Math.floor((d.uptime%3600)/60), s = d.uptime%60;
+      const ut = `${h}h ${m}m ${s}s`;
+      set('uptime-val', 'Uptime: '+ut);
+      set('uptime-detail', ut);
+      set('prev-build-msg', `Build #${parseInt(d.buildNumber)-1} — previous version`);
+    } catch(e) {
+      set('uptime-val','Uptime: running');
+    }
+  }
+
+  function set(id, text, width) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (text !== null && text !== undefined) el.textContent = text;
+    if (width !== undefined && width !== null) el.style.width = width+'%';
+  }
+
+  fetchMetrics();
+  fetchDeployment();
+  setInterval(fetchMetrics, 5000);
+  setInterval(fetchDeployment, 15000);
+</script>
+</body>
+</html>
