@@ -43,12 +43,12 @@ pipeline {
 
         stage('Docker Push') {
             steps {
-                echo "Docker Hub руу push хийж байна..."
-                sh """
-                    echo ${DOCKER_HUB_PSW} | docker login -u ${DOCKER_HUB_USR} --password-stdin
-                    docker push ${IMAGE_NAME}:${APP_VERSION}
-                    docker push ${IMAGE_NAME}:latest
-                """
+                //echo "Docker Hub руу push хийж байна..."
+                //sh """
+                    //echo ${DOCKER_HUB_PSW} | docker login -u ${DOCKER_HUB_USR} --password-stdin
+                    //docker push ${IMAGE_NAME}:${APP_VERSION}
+                    //docker push ${IMAGE_NAME}:latest
+                //"""
             }
         }
 
