@@ -51,18 +51,19 @@ pipeline {
             }
         }
 
-        stage('Deploy to EC2') {
+       stage('Deploy to EC2') {
     steps {
         echo "EC2 дээр deploy хийж байна..."
-        sh """
-            export PATH=/opt/homebrew/bin:$PATH
-            export APP_VERSION=${APP_VERSION}
-            export DOCKER_IMAGE=${IMAGE_NAME}
-            docker compose down || true
-            docker compose pull
-            docker compose up -d
-            docker image prune -f
-        """
+        sshagent(['ec2-ssh']) {
+            sh """
+                ssh -o StrictHostKeyChecking=no ubuntu@54.169.32.212 '
+                    docker pull ${IMAGE_NAME}:latest
+                    docker stop dashboard-app || true
+                    docker rm dashboard-app || true
+                    docker run -d --name dashboard-app -p 3000:3000 ${IMAGE_NAME}:latest
+                '
+            """
+        }
     }
 }
 
