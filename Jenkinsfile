@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    tools {
+        nodejs 'nodejs'
+    }
+
     environment {
         APP_NAME    = 'deployment-dashboard'
         DOCKER_HUB  = credentials('dockerhub-credentials')
