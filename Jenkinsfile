@@ -99,19 +99,13 @@ pipeline {
     }
 
     post {
-        success {
-            echo """
-            ╔══════════════════════════════════════╗
-            ║  ✅ DEPLOY АМЖИЛТТАЙ БОЛЛОО!         ║
-            ║  Version : ${APP_VERSION}             
-            ║  Build   : #${BUILD_NUMBER}           
-            ║  Branch  : ${GIT_BRANCH_NAME}         
-            ╚══════════════════════════════════════╝
-            """
-        }
-        failure {
-            echo "❌ Pipeline амжилтгүй боллоо. Log-г шалгана уу."
-        }
+    success {
+        echo "✅ DEPLOY АМЖИЛТТАЙ БОЛЛОО! Version: ${APP_VERSION} | Build: #${BUILD_NUMBER}"
+    }
+    failure {
+        echo "❌ Pipeline амжилтгүй боллоо. Log-г шалгана уу."
+    }
+}
         always {
             // Docker login session цэвэрлэнэ
             sh 'docker logout || true'
