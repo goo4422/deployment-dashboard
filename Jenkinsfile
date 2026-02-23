@@ -52,18 +52,19 @@ pipeline {
         }
 
         stage('Deploy to EC2') {
-            steps {
-                echo "EC2 дээр deploy хийж байна..."
-                sh """
-                    export APP_VERSION=${APP_VERSION}
-                    export DOCKER_IMAGE=${IMAGE_NAME}
-                    docker-compose down || true
-                    docker-compose pull
-                    docker-compose up -d
-                    docker image prune -f
-                """
-            }
-        }
+    steps {
+        echo "EC2 дээр deploy хийж байна..."
+        sh """
+            export PATH=/opt/homebrew/bin:$PATH
+            export APP_VERSION=${APP_VERSION}
+            export DOCKER_IMAGE=${IMAGE_NAME}
+            docker compose down || true
+            docker compose pull
+            docker compose up -d
+            docker image prune -f
+        """
+    }
+}
 
         stage('Health Check') {
             steps {
