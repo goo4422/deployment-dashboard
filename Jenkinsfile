@@ -32,13 +32,14 @@ pipeline {
         }
 
         stage('Docker Build') {
-            steps {
-                echo "Docker image build хийж байна..."
-                sh """
-                    docker build -t ${IMAGE_NAME}:${APP_VERSION} -t ${IMAGE_NAME}:latest .
-                """
-            }
-        }
+    steps {
+        echo "Docker image build хийж байна..."
+        sh """
+            export PATH=/opt/homebrew/bin:$PATH
+            docker buildx build --platform linux/amd64 -t ${IMAGE_NAME}:${APP_VERSION} -t ${IMAGE_NAME}:latest --push .
+        """
+    }
+}
 
         stage('Docker Push') {
             steps {
