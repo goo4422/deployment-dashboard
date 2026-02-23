@@ -44,20 +44,27 @@ pipeline {
         }
 
         stage('Deploy to EC2') {
-            steps {
-                echo "EC2 дээр deploy хийж байна..."
-                sshagent(['ec2-ssh']) {
-                    sh """
-                        ssh -o StrictHostKeyChecking=no ubuntu@54.169.32.212 '
-                            docker pull ${IMAGE_NAME}:latest
-                            docker stop dashboard-app || true
-                            docker rm dashboard-app || true
-                            docker run -d --name dashboard-app -p 3000:3000 ${IMAGE_NAME}:latest
-                        '
-                    """
-                }
-            }
+    steps {
+        echo "EC2 дээр deploy хийж байна..."
+        sshagent(['ec2-ssh']) {
+            sh """
+                ssh -o StrictHostKeyChecking=no ubuntu@54.169.32.212 '
+                    docker pull ${IMAGE_NAME}:latest
+                    docker stop dashboard-app || true
+                    docker rm dashboard-app || true
+                    docker run -d --name dashboard-app -p 3000:3000 \
+                        -e APP_VERSION=${APP_VERSION} \
+                        -e BUILD_NUMBER=${BUILD_NUMBER} \
+                        -e GIT_BRANCH=${GIT_BRANCH_NAME} \
+                        -e GIT_COMMIT=${GIT_COMMIT} \
+                        -e NODE_ENV=production \
+                        -e DOCKER_IMAGE=${IMAGE_NAME}:${APP_VERSION} \
+                        ${IMAGE_NAME}:latest
+                '
+            """
         }
+    }
+}
 
         stage('Health Check') {
             steps {
