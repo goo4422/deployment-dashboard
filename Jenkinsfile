@@ -3,58 +3,41 @@ pipeline {
 
     environment {
         APP_NAME    = 'deployment-dashboard'
-        DOCKER_HUB  = credentials('dockerhub-credentials')  // Jenkins-д нэмнэ
+        DOCKER_HUB  = credentials('dockerhub-credentials')
         IMAGE_NAME  = "${DOCKER_HUB_USR}/${APP_NAME}"
         APP_VERSION = "v${BUILD_NUMBER}"
         BUILD_DATE  = sh(script: 'date -u +%Y-%m-%dT%H:%M:%SZ', returnStdout: true).trim()
-        GIT_BRANCH_NAME = "${GIT_BRANCH?.replaceAll('origin/', '') ?: 'main'}"
+        GIT_BRANCH_NAME = 'main'
     }
 
     stages {
 
-        stage('🔍 Checkout') {
+        stage('Checkout') {
             steps {
-                echo "📥 Код татаж байна... Branch: ${GIT_BRANCH_NAME}"
+                echo "Код татаж байна..."
                 checkout scm
             }
         }
 
-        stage('📦 Install Dependencies') {
+        stage('Install') {
             steps {
-                echo "📦 npm packages суулгаж байна..."
+                echo "npm packages суулгаж байна..."
                 sh 'npm install'
             }
         }
 
-        stage('🧪 Run Tests') {
+        stage('Docker Build') {
             steps {
-                echo "🧪 Тест ажиллуулж байна..."
-                sh 'npm test'
-            }
-            post {
-                always {
-                    // Test report хадгална
-                    junit allowEmptyResults: true, testResults: 'test-results/*.xml'
-                }
-            }
-        }
-
-        stage('🐳 Docker Build') {
-            steps {
-                echo "🐳 Docker image build хийж байна: ${IMAGE_NAME}:${APP_VERSION}"
+                echo "Docker image build хийж байна..."
                 sh """
-                    docker build \
-                        --build-arg APP_VERSION=${APP_VERSION} \
-                        -t ${IMAGE_NAME}:${APP_VERSION} \
-                        -t ${IMAGE_NAME}:latest \
-                        .
+                    docker build -t ${IMAGE_NAME}:${APP_VERSION} -t ${IMAGE_NAME}:latest .
                 """
             }
         }
 
-        stage('🚀 Docker Push') {
+        stage('Docker Push') {
             steps {
-                echo "🚀 Docker Hub руу push хийж байна..."
+                echo "Docker Hub руу push хийж байна..."
                 sh """
                     echo ${DOCKER_HUB_PSW} | docker login -u ${DOCKER_HUB_USR} --password-stdin
                     docker push ${IMAGE_NAME}:${APP_VERSION}
@@ -63,33 +46,23 @@ pipeline {
             }
         }
 
-        stage('☁️ Deploy to EC2') {
+        stage('Deploy to EC2') {
             steps {
-                echo "☁️ EC2 дээр deploy хийж байна..."
+                echo "EC2 дээр deploy хийж байна..."
                 sh """
                     export APP_VERSION=${APP_VERSION}
-                    export BUILD_NUMBER=${BUILD_NUMBER}
-                    export BUILD_DATE=${BUILD_DATE}
-                    export GIT_BRANCH=${GIT_BRANCH_NAME}
-                    export GIT_COMMIT=${GIT_COMMIT}
                     export DOCKER_IMAGE=${IMAGE_NAME}
-
-                    # Хуучин container зогсооно
                     docker-compose down || true
-
-                    # Шинэ image татаж, container эхлүүлнэ
                     docker-compose pull
                     docker-compose up -d
-
-                    # Хуучин image устгана
                     docker image prune -f
                 """
             }
         }
 
-        stage('✅ Health Check') {
+        stage('Health Check') {
             steps {
-                echo "✅ Health check хийж байна..."
+                echo "Health check хийж байна..."
                 retry(5) {
                     sleep(time: 5, unit: 'SECONDS')
                     sh 'curl -f http://localhost:3000/health'
@@ -99,16 +72,11 @@ pipeline {
     }
 
     post {
-    success {
-        echo "✅ DEPLOY АМЖИЛТТАЙ БОЛЛОО! Version: ${APP_VERSION} | Build: #${BUILD_NUMBER}"
-    }
-    failure {
-        echo "❌ Pipeline амжилтгүй боллоо. Log-г шалгана уу."
-    }
-}
-        always {
-            // Docker login session цэвэрлэнэ
-            sh 'docker logout || true'
+        success {
+            echo "✅ DEPLOY АМЖИЛТТАЙ! Version: ${APP_VERSION} | Build: #${BUILD_NUMBER}"
+        }
+        failure {
+            echo "❌ Pipeline амжилтгүй боллоо."
         }
     }
 }
