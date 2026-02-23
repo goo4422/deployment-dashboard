@@ -6,6 +6,7 @@ pipeline {
     }
 
     environment {
+        PATH = "/opt/homebrew/bin:${env.PATH}"
         APP_NAME    = 'deployment-dashboard'
         DOCKER_HUB  = credentials('dockerhub-credentials')
         IMAGE_NAME  = "${DOCKER_HUB_USR}/${APP_NAME}"
