@@ -48,7 +48,7 @@ pipeline {
         echo "EC2 дээр deploy хийж байна..."
         sshagent(['ec2-ssh']) {
             sh """
-                ssh -o StrictHostKeyChecking=no ubuntu@54.169.32.212 '
+                ssh -o StrictHostKeyChecking=no ubuntu@3.0.100.73 '
                     docker pull ${IMAGE_NAME}:latest
                     docker stop dashboard-app || true
                     docker rm dashboard-app || true
