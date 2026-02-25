@@ -69,7 +69,7 @@ pipeline {
         stage('Health Check') {
             steps {
                 echo "Health check хийж байна..."
-                sh 'curl -f http://54.169.32.212:3000/health'
+                sh 'curl -f http://3.0.100.73:3000/health'
             }
         }
     }
