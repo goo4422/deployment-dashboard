@@ -48,7 +48,7 @@ pipeline {
         echo "EC2 дээр deploy хийж байна..."
         sshagent(['ec2-ssh']) {
             sh """
-                ssh -o StrictHostKeyChecking=no ubuntu@3.0.100.73 '
+                ssh -o StrictHostKeyChecking=no ubuntu@18.141.35.169 '
                     docker pull ${IMAGE_NAME}:latest
                     docker stop dashboard-app || true
                     docker rm dashboard-app || true
@@ -69,7 +69,7 @@ pipeline {
         stage('Health Check') {
             steps {
                 echo "Health check хийж байна..."
-                sh 'curl -f http://3.0.100.73:3000/health'
+                sh 'curl -f http://18.141.35.169:3000/health'
             }
         }
     }
