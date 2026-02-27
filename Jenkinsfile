@@ -66,12 +66,13 @@ pipeline {
     }
 }
 
-        stage('Health Check') {
-            steps {
-                echo "Health check хийж байна..."
-                sh 'curl -f http://18.141.35.169:3000/health'
-            }
-        }
+      stage('Health Check') {
+    steps {
+        echo "Health check хийж байна..."
+        sh 'sleep 15'
+        sh 'curl -f http://18.141.35.169:3000/health'
+    }
+}
     }
 
     post {
