@@ -24,7 +24,7 @@ pipeline {
 
         stage('Install') {
             steps {
-                echo "npm packages суулгаж байна..."x  
+                echo "npm packages суулгаж байна..."
                 sh 'npm install'
             }
         }
