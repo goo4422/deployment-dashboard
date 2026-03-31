@@ -207,6 +207,24 @@
   .log-body{flex:1;}
   .log-msg{color:var(--text);margin-bottom:2px;line-height:1.4;}
   .log-meta{color:var(--text-muted);font-size:10px;}
+  .btn-rollback{
+    background:transparent;border:1px solid var(--border);border-radius:6px;
+    color:var(--text-muted);cursor:pointer;padding:3px 10px;font-size:10px;
+    font-family:'JetBrains Mono',monospace;transition:all 0.18s;white-space:nowrap;flex-shrink:0;
+  }
+  .btn-rollback:hover{color:var(--yellow);border-color:rgba(227,179,65,0.4);background:rgba(227,179,65,0.08);}
+  .btn-rollback:disabled{opacity:0.3;cursor:not-allowed;}
+  .rollback-toast{
+    position:fixed;bottom:24px;right:24px;z-index:100;
+    background:var(--bg3);border:1px solid var(--border);border-radius:10px;
+    padding:12px 18px;font-size:12px;color:var(--text);
+    box-shadow:0 8px 32px rgba(0,0,0,0.4);
+    animation:toastIn 0.2s ease;display:none;
+  }
+  .rollback-toast.show{display:block;}
+  .rollback-toast.ok{border-left:3px solid var(--green2);}
+  .rollback-toast.err{border-left:3px solid var(--red);}
+  @keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
   footer{
     margin-top:24px;padding-top:16px;border-top:1px solid var(--border);
@@ -385,6 +403,7 @@
   </footer>
 </div>
 
+<div id="rollback-toast" class="rollback-toast"></div>
 <script>
   function tick() {
     const now = new Date();
@@ -451,6 +470,7 @@
             <div class="log-msg">Build #${h.buildNumber} &mdash; ${h.version} deployed${i===0?' &larr; Current':''}</div>
             <div class="log-meta">${ago(h.deployedAt)} &middot; ${h.gitBranch} &middot; ${h.gitCommit}</div>
           </div>
+          ${i>0?`<button class="btn-rollback" onclick="rollback('${h.buildNumber}',this)">Rollback</button>`:''}
         </div>
       `).join('');
     } catch(e){}
@@ -461,6 +481,31 @@
     if (!el) return;
     if (text != null) el.textContent = text;
     if (width != null) el.style.width = width+'%';
+  }
+
+  async function rollback(buildNumber, btn) {
+    if (!confirm(`Build #${buildNumber} руу rollback хийх үү?`)) return;
+    btn.disabled = true;
+    btn.textContent = '...';
+    try {
+      const r = await fetch(`/api/rollback/${buildNumber}`, { method: 'POST' });
+      const d = await r.json();
+      if (!r.ok) throw d.error || 'Failed';
+      showToast(d.message, 'ok');
+      setTimeout(fetchHistory, 800);
+    } catch(e) {
+      showToast(typeof e==='string'?e:'Rollback failed', 'err');
+      btn.disabled = false;
+      btn.textContent = 'Rollback';
+    }
+  }
+
+  function showToast(msg, type) {
+    const t = document.getElementById('rollback-toast');
+    t.textContent = msg;
+    t.className = 'rollback-toast show ' + type;
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => { t.className = 'rollback-toast'; }, 4000);
   }
 
   fetchMetrics(); fetchDeployment(); fetchHistory();
