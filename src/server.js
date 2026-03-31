@@ -191,6 +191,46 @@ app.delete('/api/tasks/:id', (req, res) => {
   res.status(204).end();
 });
 
+// ── API: Rollback ───────────────────────────────────────
+app.get('/api/rollback/candidates', (req, res) => {
+  const history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+  // Одоогийн build-аас өмнөх хувилбарууд
+  const candidates = history
+    .filter(h => h.buildNumber !== DEPLOY_INFO.buildNumber && h.status === 'success')
+    .slice(0, 5);
+  res.json(candidates);
+});
+
+app.post('/api/rollback/:buildNumber', (req, res) => {
+  const history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+  const target = history.find(h => h.buildNumber === req.params.buildNumber);
+  if (!target) return res.status(404).json({ error: 'Build not found in history' });
+
+  // Rollback event-г history-д бүртгэнэ
+  history.unshift({
+    id:          Date.now(),
+    version:     target.version,
+    buildNumber: target.buildNumber,
+    buildDate:   target.buildDate,
+    gitBranch:   target.gitBranch,
+    gitCommit:   target.gitCommit,
+    dockerImage: target.dockerImage,
+    environment: target.environment,
+    status:      'success',
+    deployedAt:  new Date().toISOString(),
+    rollback:    true,
+    rolledBackFrom: DEPLOY_INFO.buildNumber,
+  });
+  if (history.length > 20) history.splice(20);
+  fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
+
+  res.json({
+    message:  `Rollback to ${target.version} (Build #${target.buildNumber}) initiated`,
+    target,
+    dockerImage: target.dockerImage,
+  });
+});
+
 // ── Start ───────────────────────────────────────────────
 if (require.main === module) {
   app.listen(PORT, () => {
