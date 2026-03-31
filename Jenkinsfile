@@ -19,6 +19,13 @@ pipeline {
             steps {
                 echo "Код татаж байна..."
                 checkout scm
+                script {
+                    env.BUILD_DATE = sh(
+                        script: 'date -u +%Y-%m-%dT%H:%M:%SZ',
+                        returnStdout: true
+                    ).trim()
+                }
+                echo "Build date: ${BUILD_DATE}"
             }
         }
 
@@ -29,58 +36,75 @@ pipeline {
             }
         }
 
+        stage('Test') {
+            steps {
+                echo "Тестүүд ажиллуулж байна..."
+                sh 'npm test'
+            }
+            post {
+                failure {
+                    echo "❌ Тест амжилтгүй боллоо — deploy зогсоов."
+                }
+            }
+        }
+
         stage('Docker Build & Push') {
             steps {
                 echo "Docker image build & push хийж байна..."
                 sh """
-                    export PATH=/opt/homebrew/bin:$PATH
+                    export PATH=/opt/homebrew/bin:\$PATH
                     echo ${DOCKER_HUB_PSW} | docker login -u ${DOCKER_HUB_USR} --password-stdin
-                    docker buildx build --platform linux/amd64 \
-                        -t ${IMAGE_NAME}:${APP_VERSION} \
-                        -t ${IMAGE_NAME}:latest \
+                    docker buildx build --platform linux/amd64 \\
+                        -t ${IMAGE_NAME}:${APP_VERSION} \\
+                        -t ${IMAGE_NAME}:latest \\
                         --push .
                 """
             }
         }
 
         stage('Deploy to EC2') {
-    steps {
-        echo "EC2 дээр deploy хийж байна..."
-        sshagent(['ec2-ssh']) {
-            sh """
-                ssh -o StrictHostKeyChecking=no ubuntu@18.141.35.169 '
-                    docker pull ${IMAGE_NAME}:latest
-                    docker stop dashboard-app || true
-                    docker rm dashboard-app || true
-                    docker run -d --name dashboard-app -p 3000:3000 \
-                        -e APP_VERSION=${APP_VERSION} \
-                        -e BUILD_NUMBER=${BUILD_NUMBER} \
-                        -e GIT_BRANCH=${GIT_BRANCH_NAME} \
-                        -e GIT_COMMIT=${GIT_COMMIT} \
-                        -e NODE_ENV=production \
-                        -e DOCKER_IMAGE=${IMAGE_NAME}:${APP_VERSION} \
-                        ${IMAGE_NAME}:latest
-                '
-            """
+            steps {
+                echo "EC2 дээр deploy хийж байна..."
+                sshagent(['ec2-ssh']) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no ubuntu@18.141.35.169 '
+                            docker pull ${IMAGE_NAME}:latest
+                            docker stop dashboard-app || true
+                            docker rm dashboard-app || true
+                            docker run -d --name dashboard-app -p 3000:3000 \\
+                                -v dashboard-data:/app/data \\
+                                -e APP_VERSION=${APP_VERSION} \\
+                                -e BUILD_NUMBER=${BUILD_NUMBER} \\
+                                -e BUILD_DATE=${BUILD_DATE} \\
+                                -e GIT_BRANCH=${GIT_BRANCH_NAME} \\
+                                -e GIT_COMMIT=${GIT_COMMIT} \\
+                                -e NODE_ENV=production \\
+                                -e DOCKER_IMAGE=${IMAGE_NAME}:${APP_VERSION} \\
+                                ${IMAGE_NAME}:latest
+                        '
+                    """
+                }
+            }
         }
-    }
-}
 
-      stage('Health Check') {
-    steps {
-        echo "Health check хийж байна..."
-        sh 'sleep 15'
-        sh 'curl -f http://18.141.35.169:3000/health'
-    }
-}
+        stage('Health Check') {
+            steps {
+                echo "Health check хийж байна..."
+                retry(10) {
+                    sleep(time: 10, unit: 'SECONDS')
+                    sh 'curl -f http://18.141.35.169:3000/health'
+                }
+            }
+        }
+
     }
 
     post {
         success {
-            echo "✅ DEPLOY АМЖИЛТТАЙ! Version: ${APP_VERSION} | Build: #${BUILD_NUMBER}"
+            echo "✅ DEPLOY АМЖИЛТТАЙ! Version: ${APP_VERSION} | Build: #${BUILD_NUMBER} | Date: ${BUILD_DATE}"
         }
         failure {
-            echo "❌ Pipeline амжилтгүй боллоо."
+            echo "❌ Pipeline амжилтгүй боллоо. Build: #${BUILD_NUMBER}"
         }
     }
 }

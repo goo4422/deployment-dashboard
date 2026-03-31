@@ -43,6 +43,13 @@
   .live-dot { width:7px; height:7px; background:var(--green); border-radius:50%; animation:pulse 2s infinite; }
   @keyframes pulse { 0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(57,211,83,0.4)} 50%{opacity:0.7;box-shadow:0 0 0 6px rgba(57,211,83,0)} }
   .timestamp { font-size:11px; color:var(--text-muted); }
+  .nav { display:flex; gap:4px; }
+  .nav a {
+    padding:6px 14px; border-radius:6px; font-size:12px; text-decoration:none;
+    color:var(--text-dim); border:1px solid transparent; transition:all 0.2s;
+  }
+  .nav a:hover { color:var(--text); background:var(--bg3); }
+  .nav a.active { color:var(--green); border-color:rgba(57,211,83,0.3); background:rgba(57,211,83,0.08); }
 
   .status-banner {
     background:linear-gradient(135deg,rgba(57,211,83,0.08),rgba(57,211,83,0.02));
@@ -116,9 +123,15 @@
 <div class="container">
 
   <header>
-    <div class="logo">
-      <div class="logo-icon">🚀</div>
-      <div class="logo-text">Deploy<span>Watch</span></div>
+    <div style="display:flex;align-items:center;gap:24px">
+      <div class="logo">
+        <div class="logo-icon">🚀</div>
+        <div class="logo-text">Deploy<span>Watch</span></div>
+      </div>
+      <nav class="nav">
+        <a href="/" class="active">Dashboard</a>
+        <a href="/tasks">Task Manager</a>
+      </nav>
     </div>
     <div class="header-right">
       <div class="live-badge"><div class="live-dot"></div>Live</div>
@@ -210,35 +223,16 @@
       <div class="progress-bar"><div class="progress-fill fill-yellow" id="disk-bar" style="width:0%"></div></div>
     </div>
 
-    <!-- Deploy History -->
+    <!-- Deploy History (dynamic) -->
     <div class="card col-6">
       <div class="card-header"><div class="card-title">Recent Deployments</div><div class="card-badge badge-blue">HISTORY</div></div>
-      <div class="log-item success">
-        <div>✅</div>
-        <div class="log-body">
-          <div class="log-msg">Build #{{BUILD_NUMBER}} — {{VERSION}} deployed ← Current</div>
-          <div class="log-meta">{{BUILD_DATE}} · {{GIT_BRANCH}} · {{GIT_COMMIT}}</div>
-        </div>
-      </div>
-      <div class="log-item success">
-        <div>✅</div>
-        <div class="log-body">
-          <div class="log-msg" id="prev-build-msg">Previous build — deployed</div>
-          <div class="log-meta">branch: main · auto deploy via Jenkins</div>
-        </div>
-      </div>
-      <div class="log-item warning">
-        <div>⚠️</div>
-        <div class="log-body">
-          <div class="log-msg">Tests warning — 2 skipped</div>
-          <div class="log-meta">branch: hotfix · manual trigger</div>
-        </div>
-      </div>
-      <div class="log-item error">
-        <div>❌</div>
-        <div class="log-body">
-          <div class="log-msg">Docker build failed — image not found</div>
-          <div class="log-meta">branch: feature/auth · build aborted</div>
+      <div id="history-list">
+        <div class="log-item success">
+          <div>✅</div>
+          <div class="log-body">
+            <div class="log-msg">Build #{{BUILD_NUMBER}} — {{VERSION}} deployed ← Current</div>
+            <div class="log-meta">{{BUILD_DATE}} · {{GIT_BRANCH}} · {{GIT_COMMIT}}</div>
+          </div>
         </div>
       </div>
     </div>
@@ -337,10 +331,33 @@
     if (width !== undefined && width !== null) el.style.width = width+'%';
   }
 
+  // Fetch real deployment history
+  async function fetchHistory() {
+    try {
+      const r = await fetch('/api/history');
+      if (!r.ok) throw 0;
+      const history = await r.json();
+      if (!history.length) return;
+      const statusIcon = s => s === 'success' ? '✅' : s === 'warning' ? '⚠️' : '❌';
+      const statusClass = s => s === 'success' ? 'success' : s === 'warning' ? 'warning' : 'error';
+      document.getElementById('history-list').innerHTML = history.slice(0, 5).map((h, i) => `
+        <div class="log-item ${statusClass(h.status)}">
+          <div>${statusIcon(h.status)}</div>
+          <div class="log-body">
+            <div class="log-msg">Build #${h.buildNumber} — ${h.version} deployed${i === 0 ? ' ← Current' : ''}</div>
+            <div class="log-meta">${new Date(h.deployedAt).toLocaleString()} · ${h.gitBranch} · ${h.gitCommit}</div>
+          </div>
+        </div>
+      `).join('');
+    } catch(e) { /* keep static fallback */ }
+  }
+
   fetchMetrics();
   fetchDeployment();
+  fetchHistory();
   setInterval(fetchMetrics, 5000);
   setInterval(fetchDeployment, 15000);
+  setInterval(fetchHistory, 30000);
 </script>
 </body>
 </html>

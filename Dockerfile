@@ -21,8 +21,8 @@ COPY src/ ./src/
 COPY public/ ./public/
 COPY package.json ./
 
-# Эзэмшлийг appuser-д өгнө
-RUN chown -R appuser:appgroup /app
+# Data directory үүсгэж эзэмшлийг appuser-д өгнө
+RUN mkdir -p /app/data && chown -R appuser:appgroup /app
 USER appuser
 
 # Port нээнэ

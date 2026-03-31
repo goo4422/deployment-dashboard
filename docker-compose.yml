@@ -1,8 +1,6 @@
-version: '3.8'
-
 services:
   app:
-    image: ${DOCKER_IMAGE:-deployment-dashboard}:${APP_VERSION:-latest}
+    image: deployment-dashboard:local
     container_name: dashboard-app
     build:
       context: .
@@ -17,6 +15,8 @@ services:
       - BUILD_DATE=${BUILD_DATE:-}
       - GIT_BRANCH=${GIT_BRANCH:-main}
       - GIT_COMMIT=${GIT_COMMIT:-unknown}
+    volumes:
+      - dashboard-data:/app/data
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
@@ -24,3 +24,7 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+volumes:
+  dashboard-data:
+    driver: local
