@@ -45,8 +45,9 @@
   .logo-icon{
     width:34px;height:34px;border-radius:8px;
     background:linear-gradient(135deg,#3fb950,#1a7f37);
-    display:flex;align-items:center;justify-content:center;font-size:17px;
-    box-shadow:0 0 16px rgba(63,185,80,0.3);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:#fff;
+    box-shadow:0 0 16px rgba(63,185,80,0.3);letter-spacing:-0.5px;
   }
   .logo-text{font-family:'Syne',sans-serif;font-size:19px;font-weight:800;color:var(--text);}
   .logo-text span{color:var(--green2);}
@@ -59,20 +60,25 @@
   .nav a.active{color:var(--green2);border-color:rgba(57,211,83,0.25);background:rgba(57,211,83,0.07);}
   .clock-badge{font-size:12px;color:var(--text-dim);background:var(--bg3);border:1px solid var(--border);padding:4px 10px;border-radius:6px;}
 
-  /* Progress bar */
+  /* Progress header */
   .progress-header{
     background:var(--bg2);border:1px solid var(--border);border-radius:12px;
-    padding:16px 20px;margin-bottom:16px;
+    padding:16px 20px;margin-bottom:14px;
   }
   .ph-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;}
-  .ph-label{font-size:11px;text-transform:uppercase;letter-spacing:1.5px;color:var(--text-muted);}
-  .ph-pct{font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--green2);}
-  .ph-sub{font-size:11px;color:var(--text-dim);}
+  .ph-label{font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);}
+  .ph-pct{font-family:'Syne',sans-serif;font-size:24px;font-weight:800;color:var(--green2);}
+  .ph-sub{font-size:11px;color:var(--text-dim);margin-top:2px;}
   .ph-track{height:6px;background:var(--bg4);border-radius:3px;overflow:hidden;}
-  .ph-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,#1a7f37,var(--green2));transition:width 0.8s cubic-bezier(0.4,0,0.2,1);box-shadow:0 0 8px rgba(57,211,83,0.3);}
+  .ph-fill{
+    height:100%;border-radius:3px;
+    background:linear-gradient(90deg,#1a7f37,var(--green2));
+    transition:width 0.8s cubic-bezier(0.4,0,0.2,1);
+    box-shadow:0 0 8px rgba(57,211,83,0.25);
+  }
 
   /* Stats */
-  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px;}
+  .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:14px;}
   .stat-card{
     background:var(--bg2);border:1px solid var(--border);border-radius:10px;
     padding:14px 16px;position:relative;overflow:hidden;transition:border-color 0.2s,box-shadow 0.2s;
@@ -83,7 +89,14 @@
   .sc-done::before {background:linear-gradient(90deg,var(--green2),transparent);}
   .sc-pend::before {background:linear-gradient(90deg,var(--yellow),transparent);}
   .sc-high::before {background:linear-gradient(90deg,var(--red),transparent);}
-  .sc-icon{font-size:18px;margin-bottom:8px;}
+  .sc-tag{
+    display:inline-block;font-size:9px;font-weight:700;font-family:'Syne',sans-serif;
+    padding:2px 6px;border-radius:4px;margin-bottom:8px;letter-spacing:0.5px;
+  }
+  .sc-total .sc-tag{background:rgba(88,166,255,0.12);color:var(--blue);}
+  .sc-done  .sc-tag{background:rgba(63,185,80,0.12);color:var(--green2);}
+  .sc-pend  .sc-tag{background:rgba(227,179,65,0.12);color:var(--yellow);}
+  .sc-high  .sc-tag{background:rgba(248,81,73,0.12);color:var(--red);}
   .sc-val{font-family:'Syne',sans-serif;font-size:26px;font-weight:800;line-height:1;margin-bottom:3px;}
   .sc-lbl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--text-muted);}
   .sc-total .sc-val{color:var(--blue);}
@@ -95,7 +108,7 @@
   /* Add form */
   .add-form{
     background:var(--bg2);border:1px solid var(--border);border-radius:12px;
-    padding:18px 20px;margin-bottom:16px;
+    padding:18px 20px;margin-bottom:14px;
   }
   .form-title{font-size:10px;text-transform:uppercase;letter-spacing:1.8px;color:var(--text-muted);margin-bottom:12px;}
   .form-row{display:flex;gap:8px;}
@@ -113,17 +126,17 @@
   }
   .btn-add{
     background:linear-gradient(135deg,#2ea043,#3fb950);color:#fff;border:none;border-radius:8px;
-    padding:10px 20px;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;
+    padding:10px 22px;font-family:'Syne',sans-serif;font-weight:700;font-size:13px;
     cursor:pointer;transition:all 0.2s;white-space:nowrap;
-    box-shadow:0 0 16px rgba(63,185,80,0.2);
+    box-shadow:0 0 16px rgba(63,185,80,0.18);
   }
-  .btn-add:hover{box-shadow:0 0 20px rgba(63,185,80,0.35);transform:translateY(-1px);}
+  .btn-add:hover{box-shadow:0 0 22px rgba(63,185,80,0.32);transform:translateY(-1px);}
   .btn-add:active{transform:translateY(0);}
   .btn-add:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}
   @media(max-width:500px){.form-row{flex-direction:column;}}
 
   /* Filters */
-  .filters{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap;}
+  .filters{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
   .filter-btn{
     padding:5px 14px;border-radius:20px;font-size:11px;cursor:pointer;
     border:1px solid var(--border);background:transparent;color:var(--text-muted);
@@ -134,17 +147,16 @@
 
   /* Task list */
   .task-list{display:flex;flex-direction:column;gap:6px;}
-
   .task-item{
     background:var(--bg2);border:1px solid var(--border);border-radius:10px;
     padding:13px 16px;display:flex;align-items:center;gap:12px;
     border-left:3px solid var(--border);
     transition:border-color 0.2s,box-shadow 0.2s,opacity 0.3s;
-    animation:slideIn 0.2s ease;
+    animation:slideIn 0.18s ease;
   }
   @keyframes slideIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
   .task-item:hover{border-color:#2d333b;box-shadow:0 2px 12px rgba(0,0,0,0.2);}
-  .task-item.done{opacity:0.45;}
+  .task-item.done{opacity:0.4;}
   .task-item.done .task-title{text-decoration:line-through;color:var(--text-muted);}
   .task-item.pri-high  {border-left-color:var(--red);}
   .task-item.pri-medium{border-left-color:var(--yellow);}
@@ -156,13 +168,16 @@
     flex-shrink:0;transition:all 0.18s;font-size:11px;font-weight:700;color:#fff;
   }
   .task-check:hover{border-color:var(--green2);}
-  .task-check.checked{background:var(--green2);border-color:var(--green2);box-shadow:0 0 8px rgba(57,211,83,0.3);}
+  .task-check.checked{background:var(--green2);border-color:var(--green2);box-shadow:0 0 8px rgba(57,211,83,0.25);}
 
   .task-body{flex:1;min-width:0;}
   .task-title{font-size:13px;color:var(--text);margin-bottom:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;line-height:1.4;}
   .task-meta{font-size:10px;color:var(--text-muted);}
 
-  .priority-badge{font-size:10px;padding:2px 9px;border-radius:20px;text-transform:uppercase;letter-spacing:0.5px;flex-shrink:0;border:1px solid transparent;}
+  .priority-badge{
+    font-size:10px;padding:2px 9px;border-radius:20px;text-transform:uppercase;
+    letter-spacing:0.5px;flex-shrink:0;border:1px solid transparent;font-weight:500;
+  }
   .priority-high  {background:rgba(248,81,73,0.12); color:var(--red);   border-color:rgba(248,81,73,0.2);}
   .priority-medium{background:rgba(227,179,65,0.12);color:var(--yellow);border-color:rgba(227,179,65,0.2);}
   .priority-low   {background:rgba(63,185,80,0.12); color:var(--green2);border-color:rgba(63,185,80,0.2);}
@@ -175,8 +190,8 @@
   .btn-delete:hover{color:var(--red);border-color:rgba(248,81,73,0.3);background:rgba(248,81,73,0.08);}
 
   .empty{text-align:center;padding:56px 24px;color:var(--text-muted);}
-  .empty-icon{font-size:40px;margin-bottom:14px;opacity:0.5;}
-  .empty-text{font-size:13px;margin-bottom:4px;color:var(--text-dim);}
+  .empty-line{width:32px;height:2px;background:var(--border);margin:0 auto 16px;}
+  .empty-text{font-size:13px;color:var(--text-dim);margin-bottom:4px;}
   .empty-sub{font-size:11px;}
 
   footer{margin-top:28px;padding-top:16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);}
@@ -188,7 +203,7 @@
   <header>
     <div class="header-left">
       <a href="/" class="logo">
-        <div class="logo-icon">🚀</div>
+        <div class="logo-icon">DW</div>
         <div class="logo-text">Deploy<span>Watch</span></div>
       </a>
       <nav class="nav">
@@ -199,7 +214,6 @@
     <div class="clock-badge" id="clock">--:--:--</div>
   </header>
 
-  <!-- Completion progress -->
   <div class="progress-header">
     <div class="ph-row">
       <div>
@@ -211,59 +225,55 @@
     <div class="ph-track"><div class="ph-fill" id="progress-fill" style="width:0%"></div></div>
   </div>
 
-  <!-- Stats -->
   <div class="stats">
     <div class="stat-card sc-total">
-      <div class="sc-icon">📋</div>
+      <div class="sc-tag">НИЙТ</div>
       <div class="sc-val" id="stat-total">0</div>
-      <div class="sc-lbl">Нийт</div>
+      <div class="sc-lbl">Бүгд</div>
     </div>
     <div class="stat-card sc-done">
-      <div class="sc-icon">✅</div>
+      <div class="sc-tag">DONE</div>
       <div class="sc-val" id="stat-done">0</div>
       <div class="sc-lbl">Дууссан</div>
     </div>
     <div class="stat-card sc-pend">
-      <div class="sc-icon">⏳</div>
+      <div class="sc-tag">TODO</div>
       <div class="sc-val" id="stat-pending">0</div>
       <div class="sc-lbl">Хүлээгдэж буй</div>
     </div>
     <div class="stat-card sc-high">
-      <div class="sc-icon">🔴</div>
+      <div class="sc-tag">HIGH</div>
       <div class="sc-val" id="stat-high">0</div>
       <div class="sc-lbl">Яаралтай</div>
     </div>
   </div>
 
-  <!-- Add form -->
   <div class="add-form">
     <div class="form-title">Шинэ даалгавар нэмэх</div>
     <div class="form-row">
       <input type="text" class="form-input" id="task-input"
         placeholder="Даалгаврын нэр оруулна уу..." maxlength="200">
-      <select class="form-select" id="priority-select">
-        <option value="high">🔴 Яаралтай</option>
-        <option value="medium" selected>🟡 Дунд</option>
-        <option value="low">🟢 Бага</option>
+      <select class="form-select" id="priority-select" title="Тэргүүлэх чиглэл">
+        <option value="high">Яаралтай</option>
+        <option value="medium" selected>Дунд</option>
+        <option value="low">Бага</option>
       </select>
-      <button class="btn-add" id="add-btn" onclick="addTask()">+ Нэмэх</button>
+      <button type="button" class="btn-add" id="add-btn" onclick="addTask()">+ Нэмэх</button>
     </div>
   </div>
 
-  <!-- Filters -->
   <div class="filters">
-    <button class="filter-btn active" onclick="setFilter('all',this)">Бүгд · <span id="count-all">0</span></button>
-    <button class="filter-btn" onclick="setFilter('pending',this)">⏳ Хүлээгдэж буй · <span id="count-pending">0</span></button>
-    <button class="filter-btn" onclick="setFilter('done',this)">✅ Дууссан · <span id="count-done">0</span></button>
+    <button type="button" class="filter-btn active" onclick="setFilter('all',this)">Бүгд &middot; <span id="count-all">0</span></button>
+    <button type="button" class="filter-btn" onclick="setFilter('pending',this)">Хүлээгдэж буй &middot; <span id="count-pending">0</span></button>
+    <button type="button" class="filter-btn" onclick="setFilter('done',this)">Дууссан &middot; <span id="count-done">0</span></button>
   </div>
 
-  <!-- Task list -->
   <div class="task-list" id="task-list">
-    <div class="empty"><div class="empty-icon">📋</div><div class="empty-text">Уншиж байна...</div></div>
+    <div class="empty"><div class="empty-line"></div><div class="empty-text">Уншиж байна...</div></div>
   </div>
 
   <footer>
-    <span>DeployWatch · Task Manager · Docker + Jenkins CI/CD</span>
+    <span>DeployWatch &middot; Task Manager &middot; Docker + Jenkins CI/CD</span>
     <span id="footer-time"></span>
   </footer>
 </div>
@@ -294,10 +304,10 @@
     const high    = tasks.filter(t=>t.priority==='high'&&!t.done).length;
     const pct     = total ? Math.round(done/total*100) : 0;
 
-    document.getElementById('stat-total').textContent   = total;
-    document.getElementById('stat-done').textContent    = done;
-    document.getElementById('stat-pending').textContent = pending;
-    document.getElementById('stat-high').textContent    = high;
+    document.getElementById('stat-total').textContent    = total;
+    document.getElementById('stat-done').textContent     = done;
+    document.getElementById('stat-pending').textContent  = pending;
+    document.getElementById('stat-high').textContent     = high;
     document.getElementById('count-all').textContent     = total;
     document.getElementById('count-pending').textContent = pending;
     document.getElementById('count-done').textContent    = done;
@@ -311,9 +321,9 @@
 
     const list = document.getElementById('task-list');
     if (!filtered.length) {
-      list.innerHTML=`<div class="empty">
-        <div class="empty-icon">${filter==='done'?'🎉':'📋'}</div>
-        <div class="empty-text">${filter==='done'?'Дууссан даалгавар байхгүй':'Даалгавар байхгүй байна'}</div>
+      list.innerHTML = `<div class="empty">
+        <div class="empty-line"></div>
+        <div class="empty-text">${filter==='done'?'Дууссан даалгавар байхгүй':'Даалгавар байхгүй'}</div>
         <div class="empty-sub">${filter==='all'?'Дээрх маягтаар шинэ даалгавар нэмнэ үү':''}</div>
       </div>`;
       return;
@@ -322,21 +332,21 @@
     const pLabel = {high:'Яаралтай',medium:'Дунд',low:'Бага'};
     list.innerHTML = filtered.map(t=>`
       <div class="task-item pri-${t.priority}${t.done?' done':''}" id="task-${t.id}">
-        <div class="task-check${t.done?' checked':''}" onclick="toggleTask(${t.id})">${t.done?'✓':''}</div>
+        <div class="task-check${t.done?' checked':''}" onclick="toggleTask(${t.id})">${t.done?'&#10003;':''}</div>
         <div class="task-body">
           <div class="task-title">${escHtml(t.title)}</div>
           <div class="task-meta">${timeAgo(t.createdAt)}</div>
         </div>
         <span class="priority-badge priority-${t.priority}">${pLabel[t.priority]||t.priority}</span>
-        <button class="btn-delete" onclick="deleteTask(${t.id})" title="Устгах">✕</button>
+        <button type="button" class="btn-delete" onclick="deleteTask(${t.id})" title="Устгах">&times;</button>
       </div>
     `).join('');
   }
 
   function timeAgo(d) {
-    const diff=Math.floor((Date.now()-new Date(d))/1000);
-    if(diff<60) return diff+'с өмнө';
-    if(diff<3600) return Math.floor(diff/60)+'мин өмнө';
+    const diff = Math.floor((Date.now()-new Date(d))/1000);
+    if(diff<60)    return diff+'с өмнө';
+    if(diff<3600)  return Math.floor(diff/60)+'мин өмнө';
     if(diff<86400) return Math.floor(diff/3600)+'ц өмнө';
     return new Date(d).toLocaleDateString('mn-MN');
   }
@@ -349,31 +359,31 @@
   }
 
   async function addTask() {
-    const input=document.getElementById('task-input');
-    const title=input.value.trim();
+    const input = document.getElementById('task-input');
+    const title = input.value.trim();
     if (!title) { input.focus(); return; }
-    const priority=document.getElementById('priority-select').value;
-    const btn=document.getElementById('add-btn');
-    btn.disabled=true;
+    const priority = document.getElementById('priority-select').value;
+    const btn = document.getElementById('add-btn');
+    btn.disabled = true;
     try {
-      const r=await fetch('/api/tasks',{
+      const r = await fetch('/api/tasks',{
         method:'POST',
         headers:{'Content-Type':'application/json'},
         body:JSON.stringify({title,priority}),
       });
       if (r.ok) {
-        const task=await r.json();
+        const task = await r.json();
         tasks.push(task);
-        input.value='';
+        input.value = '';
         render();
       }
     } finally { btn.disabled=false; input.focus(); }
   }
 
   async function toggleTask(id) {
-    const task=tasks.find(t=>t.id===id);
+    const task = tasks.find(t=>t.id===id);
     if (!task) return;
-    const r=await fetch(`/api/tasks/${id}`,{
+    const r = await fetch(`/api/tasks/${id}`,{
       method:'PUT',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({done:!task.done}),
@@ -382,7 +392,7 @@
   }
 
   async function deleteTask(id) {
-    const r=await fetch(`/api/tasks/${id}`,{method:'DELETE'});
+    const r = await fetch(`/api/tasks/${id}`,{method:'DELETE'});
     if (r.ok) { tasks=tasks.filter(t=>t.id!==id); render(); }
   }
 
