@@ -192,9 +192,11 @@ app.delete('/api/tasks/:id', (req, res) => {
 });
 
 // ── Start ───────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`✅ Server running → http://localhost:${PORT}`);
-  console.log(`📦 Version: ${DEPLOY_INFO.version} | Build: #${DEPLOY_INFO.buildNumber} | Branch: ${DEPLOY_INFO.gitBranch}`);
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`✅ Server running → http://localhost:${PORT}`);
+    console.log(`📦 Version: ${DEPLOY_INFO.version} | Build: #${DEPLOY_INFO.buildNumber} | Branch: ${DEPLOY_INFO.gitBranch}`);
+  });
+}
 
 module.exports = app;
