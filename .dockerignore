@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+
+# Test & coverage
+test/
+coverage/
+.nyc_output/
+
+# Git
+.git/
+.gitignore
+
+# Dev config
+.env
+.env.*
+!.env.example
+
+# CI/CD (not needed in image)
+Jenkinsfile
+Makefile
+*.sh
+docker-compose*.yml
+
+# Docs & misc
+*.md
+.DS_Store

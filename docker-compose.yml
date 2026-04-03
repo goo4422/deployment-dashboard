@@ -1,12 +1,36 @@
 services:
+
+  # ── Nginx reverse proxy ─────────────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: dashboard-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # ── Node.js application ─────────────────────────────
   app:
     image: deployment-dashboard:local
     container_name: dashboard-app
     build:
       context: .
       dockerfile: Dockerfile
-    ports:
-      - "3000:3000"
+      args:
+        APP_VERSION: ${APP_VERSION:-v2.4.1}
+        BUILD_DATE:  ${BUILD_DATE:-}
+        GIT_COMMIT:  ${GIT_COMMIT:-unknown}
+    expose:
+      - "3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
@@ -15,15 +39,23 @@ services:
       - BUILD_DATE=${BUILD_DATE:-}
       - GIT_BRANCH=${GIT_BRANCH:-main}
       - GIT_COMMIT=${GIT_COMMIT:-unknown}
+      - DOCKER_IMAGE=${DOCKER_IMAGE:-deployment-dashboard:local}
     volumes:
       - dashboard-data:/app/data
     restart: unless-stopped
+    mem_limit: 256m
+    cpus: 0.5
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3000/health"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
 
 volumes:
   dashboard-data:
