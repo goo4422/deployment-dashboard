@@ -226,6 +226,58 @@
   .rollback-toast.err{border-left:3px solid var(--red);}
   @keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
+  /* Alert bell */
+  .alert-bell{
+    display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;
+    border:1px solid var(--border);background:var(--bg3);font-size:12px;color:var(--text-dim);
+    cursor:default;transition:all 0.18s;
+  }
+  .alert-bell.has-warning{border-color:rgba(227,179,65,0.4);color:var(--yellow);background:rgba(227,179,65,0.08);}
+  .alert-bell.has-critical{border-color:rgba(248,81,73,0.4);color:var(--red);background:rgba(248,81,73,0.08);animation:bellPulse 2s infinite;}
+  @keyframes bellPulse{0%,100%{box-shadow:0 0 0 0 rgba(248,81,73,0.3)}50%{box-shadow:0 0 0 5px rgba(248,81,73,0)}}
+  .alert-count{
+    font-family:'Syne',sans-serif;font-size:10px;font-weight:800;
+    background:var(--red);color:#fff;border-radius:10px;
+    padding:1px 5px;min-width:16px;text-align:center;display:none;
+  }
+  .alert-bell.has-warning .alert-count,.alert-bell.has-critical .alert-count{display:inline-block;}
+  .alert-bell.has-warning .alert-count{background:var(--yellow);}
+
+  /* Dynamic progress bar states */
+  .pf-warn{background:linear-gradient(90deg,#9e6a03,var(--yellow));}
+  .pf-crit{background:linear-gradient(90deg,#8b1a1a,var(--red));}
+
+  /* Metrics card extras */
+  .metrics-refresh-row{display:flex;align-items:center;gap:8px;}
+  .btn-refresh{
+    background:transparent;border:1px solid var(--border);border-radius:5px;
+    color:var(--text-muted);cursor:pointer;padding:2px 8px;font-size:10px;
+    font-family:'JetBrains Mono',monospace;transition:all 0.18s;
+  }
+  .btn-refresh:hover{color:var(--blue);border-color:rgba(88,166,255,0.3);}
+  .btn-refresh.spin{animation:spin 0.8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .last-updated{font-size:9px;color:var(--text-muted);}
+
+  /* Rollback badge */
+  .badge-rollback{
+    font-size:9px;padding:1px 6px;border-radius:4px;
+    background:rgba(227,179,65,0.12);color:var(--yellow);
+    border:1px solid rgba(227,179,65,0.25);
+    letter-spacing:0.5px;font-family:'Syne',sans-serif;font-weight:700;flex-shrink:0;
+  }
+
+  /* History show-all button */
+  .btn-show-all{
+    width:100%;background:transparent;border:1px solid var(--border);border-radius:6px;
+    color:var(--text-muted);cursor:pointer;padding:7px;font-size:10px;
+    font-family:'JetBrains Mono',monospace;transition:all 0.18s;margin-top:6px;
+  }
+  .btn-show-all:hover{color:var(--blue);border-color:rgba(88,166,255,0.3);background:rgba(88,166,255,0.04);}
+
+  /* Metric error state */
+  .metric-error{font-size:10px;color:var(--red);text-align:center;padding:8px;opacity:0.8;}
+
   footer{
     margin-top:24px;padding-top:16px;border-top:1px solid var(--border);
     display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);
@@ -247,6 +299,9 @@
       </nav>
     </div>
     <div class="header-right">
+      <div class="alert-bell" id="alert-bell" title="System alerts">
+        [!] <span class="alert-count" id="alert-count">0</span>
+      </div>
       <div class="live-badge"><div class="live-dot"></div>Live</div>
       <div class="clock-badge" id="clock">--:--:--</div>
     </div>
@@ -324,7 +379,11 @@
     <div class="card col-6">
       <div class="card-header">
         <div class="card-title">Server Info &amp; Metrics</div>
-        <div class="badge badge-green">ONLINE</div>
+        <div class="metrics-refresh-row">
+          <span class="last-updated" id="metrics-updated"></span>
+          <button type="button" class="btn-refresh" id="refresh-btn" onclick="refreshMetrics()" title="Refresh metrics">&#8635;</button>
+          <div class="badge badge-green">ONLINE</div>
+        </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:16px">
         <div class="info-row"><span class="info-key">Host</span><span class="info-val">{{ENVIRONMENT}}-server</span></div>
@@ -363,6 +422,7 @@
           </div>
         </div>
       </div>
+      <button type="button" class="btn-show-all" id="show-all-btn" onclick="toggleHistory()" style="display:none"></button>
     </div>
 
     <!-- Details -->
@@ -405,6 +465,7 @@
 
 <div id="rollback-toast" class="rollback-toast"></div>
 <script>
+  // ── Clock ────────────────────────────────────────────────
   function tick() {
     const now = new Date();
     document.getElementById('clock').textContent = now.toLocaleTimeString('en-US',{hour12:false});
@@ -420,62 +481,7 @@
     }
   } catch(e){}
 
-  async function fetchMetrics() {
-    try {
-      const r = await fetch('/api/metrics');
-      if (!r.ok) throw 0;
-      const m = await r.json();
-      set('cpu-val', m.cpu.usage+'%');      set('cpu-bar', null, m.cpu.usage);
-      set('mem-val', m.memory.percent+'%'); set('mem-bar', null, m.memory.percent);
-      set('disk-val',m.disk.percent+'%');   set('disk-bar',null, m.disk.percent);
-    } catch(e) {
-      const c=20+Math.floor(Math.random()*40), m=50+Math.floor(Math.random()*25);
-      set('cpu-val',c+'%'); set('cpu-bar',null,c);
-      set('mem-val',m+'%'); set('mem-bar',null,m);
-      set('disk-val','42%');set('disk-bar',null,42);
-    }
-  }
-
-  async function fetchDeployment() {
-    try {
-      const r = await fetch('/api/deployment');
-      if (!r.ok) throw 0;
-      const d = await r.json();
-      const h=Math.floor(d.uptime/3600), m=Math.floor((d.uptime%3600)/60), s=d.uptime%60;
-      const ut = `${h}h ${m}m ${s}s`;
-      set('uptime-val','Uptime: '+ut);
-      set('uptime-detail', ut);
-    } catch(e){ set('uptime-val','Uptime: running'); }
-  }
-
-  async function fetchHistory() {
-    try {
-      const r = await fetch('/api/history');
-      if (!r.ok) throw 0;
-      const history = await r.json();
-      if (!history.length) return;
-      const icon = s => s==='success'?'OK':s==='warning'?'!!':'ERR';
-      const cls  = s => s==='success'?'success':s==='warning'?'warning':'error';
-      const ago  = d => {
-        const diff=Math.floor((Date.now()-new Date(d))/1000);
-        if(diff<60) return diff+'s ago';
-        if(diff<3600) return Math.floor(diff/60)+'m ago';
-        if(diff<86400) return Math.floor(diff/3600)+'h ago';
-        return Math.floor(diff/86400)+'d ago';
-      };
-      document.getElementById('history-list').innerHTML = history.slice(0,5).map((h,i)=>`
-        <div class="log-item ${cls(h.status)}">
-          <div class="log-icon">${icon(h.status)}</div>
-          <div class="log-body">
-            <div class="log-msg">Build #${h.buildNumber} &mdash; ${h.version} deployed${i===0?' &larr; Current':''}</div>
-            <div class="log-meta">${ago(h.deployedAt)} &middot; ${h.gitBranch} &middot; ${h.gitCommit}</div>
-          </div>
-          ${i>0?`<button class="btn-rollback" onclick="rollback('${h.buildNumber}',this)">Rollback</button>`:''}
-        </div>
-      `).join('');
-    } catch(e){}
-  }
-
+  // ── Helpers ─────────────────────────────────────────────
   function set(id, text, width) {
     const el = document.getElementById(id);
     if (!el) return;
@@ -483,6 +489,132 @@
     if (width != null) el.style.width = width+'%';
   }
 
+  function setBar(barId, valId, percent, label) {
+    const bar = document.getElementById(barId);
+    const val = document.getElementById(valId);
+    if (val) val.textContent = label;
+    if (!bar) return;
+    bar.style.width = percent + '%';
+    // Dynamic color: green < 70%, yellow 70-89%, red >= 90%
+    const base = barId.includes('cpu') ? 'pf-blue' : barId.includes('mem') ? 'pf-green' : 'pf-yellow';
+    bar.className = 'progress-fill ' + (percent >= 90 ? 'pf-crit' : percent >= 70 ? 'pf-warn' : base);
+  }
+
+  function ago(d) {
+    const diff = Math.floor((Date.now() - new Date(d)) / 1000);
+    if (diff < 60)    return diff + 's ago';
+    if (diff < 3600)  return Math.floor(diff / 60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+    return Math.floor(diff / 86400) + 'd ago';
+  }
+
+  // ── Metrics ─────────────────────────────────────────────
+  async function fetchMetrics() {
+    const btn = document.getElementById('refresh-btn');
+    if (btn) btn.classList.add('spin');
+    try {
+      const r = await fetch('/api/metrics');
+      if (!r.ok) throw new Error('metrics unavailable');
+      const m = await r.json();
+      setBar('cpu-bar',  'cpu-val',  m.cpu.usage,       m.cpu.usage + '%');
+      setBar('mem-bar',  'mem-val',  m.memory.percent,  m.memory.percent + '%');
+      setBar('disk-bar', 'disk-val', m.disk.percent,    m.disk.percent + '%');
+      const upd = document.getElementById('metrics-updated');
+      if (upd) upd.textContent = 'updated ' + ago(m.timestamp || new Date().toISOString());
+    } catch(e) {
+      // Show error state — do NOT display random mock data
+      ['cpu-val','mem-val','disk-val'].forEach(id => set(id, '--'));
+      ['cpu-bar','mem-bar','disk-bar'].forEach(id => { const el = document.getElementById(id); if (el) el.style.width = '0%'; });
+      const upd = document.getElementById('metrics-updated');
+      if (upd) { upd.textContent = 'unavailable'; upd.style.color = 'var(--red)'; }
+    } finally {
+      if (btn) btn.classList.remove('spin');
+    }
+  }
+
+  function refreshMetrics() { fetchMetrics(); }
+
+  // ── Deployment info ─────────────────────────────────────
+  async function fetchDeployment() {
+    try {
+      const r = await fetch('/api/deployment');
+      if (!r.ok) throw 0;
+      const d = await r.json();
+      const h = Math.floor(d.uptime / 3600), m = Math.floor((d.uptime % 3600) / 60), s = d.uptime % 60;
+      const ut = `${h}h ${m}m ${s}s`;
+      set('uptime-val', 'Uptime: ' + ut);
+      set('uptime-detail', ut);
+    } catch(e) { set('uptime-val', 'Uptime: running'); }
+  }
+
+  // ── History ─────────────────────────────────────────────
+  let allHistory = [];
+  let historyExpanded = false;
+
+  async function fetchHistory() {
+    try {
+      const r = await fetch('/api/history');
+      if (!r.ok) throw 0;
+      allHistory = await r.json();
+      renderHistory();
+    } catch(e) {}
+  }
+
+  function renderHistory() {
+    if (!allHistory.length) return;
+    const icon = s => s === 'success' ? 'OK' : s === 'warning' ? '!!' : 'ERR';
+    const cls  = s => s === 'success' ? 'success' : s === 'warning' ? 'warning' : 'error';
+    const shown = historyExpanded ? allHistory : allHistory.slice(0, 5);
+
+    document.getElementById('history-list').innerHTML = shown.map((h, i) => `
+      <div class="log-item ${cls(h.status)}">
+        <div class="log-icon">${icon(h.status)}</div>
+        <div class="log-body">
+          <div class="log-msg">Build #${h.buildNumber} &mdash; ${h.version} deployed${i === 0 ? ' &larr; Current' : ''}</div>
+          <div class="log-meta">${ago(h.deployedAt)} &middot; ${h.gitBranch} &middot; ${h.gitCommit}</div>
+        </div>
+        ${h.rollback ? '<span class="badge-rollback">ROLLBACK</span>' : ''}
+        ${i > 0 && !h.rollback ? `<button class="btn-rollback" onclick="rollback('${h.buildNumber}',this)">Rollback</button>` : ''}
+      </div>
+    `).join('');
+
+    const btn = document.getElementById('show-all-btn');
+    if (btn) {
+      btn.style.display = allHistory.length > 5 ? 'block' : 'none';
+      btn.textContent = historyExpanded
+        ? `^ Collapse (showing ${allHistory.length})`
+        : `v Show all ${allHistory.length} deployments`;
+    }
+  }
+
+  function toggleHistory() {
+    historyExpanded = !historyExpanded;
+    renderHistory();
+  }
+
+  // ── Alerts ──────────────────────────────────────────────
+  async function fetchAlerts() {
+    try {
+      const r = await fetch('/api/alerts');
+      if (!r.ok) throw 0;
+      const data = await r.json();
+      const bell = document.getElementById('alert-bell');
+      const countEl = document.getElementById('alert-count');
+      if (!bell) return;
+      const hasCritical = data.alerts.some(a => a.type === 'critical');
+      const hasWarning  = data.alerts.some(a => a.type === 'warning');
+      bell.className = 'alert-bell' + (hasCritical ? ' has-critical' : hasWarning ? ' has-warning' : '');
+      if (countEl) countEl.textContent = data.count;
+      if (data.count > 0) {
+        const msg = data.alerts.map(a => a.message).join(' | ');
+        bell.title = msg;
+      } else {
+        bell.title = 'No active alerts';
+      }
+    } catch(e) {}
+  }
+
+  // ── Rollback ─────────────────────────────────────────────
   async function rollback(buildNumber, btn) {
     if (!confirm(`Build #${buildNumber} руу rollback хийх үү?`)) return;
     btn.disabled = true;
@@ -494,7 +626,7 @@
       showToast(d.message, 'ok');
       setTimeout(fetchHistory, 800);
     } catch(e) {
-      showToast(typeof e==='string'?e:'Rollback failed', 'err');
+      showToast(typeof e === 'string' ? e : 'Rollback failed', 'err');
       btn.disabled = false;
       btn.textContent = 'Rollback';
     }
@@ -508,10 +640,12 @@
     t._timer = setTimeout(() => { t.className = 'rollback-toast'; }, 4000);
   }
 
-  fetchMetrics(); fetchDeployment(); fetchHistory();
-  setInterval(fetchMetrics,5000);
-  setInterval(fetchDeployment,15000);
-  setInterval(fetchHistory,30000);
+  // ── Init ─────────────────────────────────────────────────
+  fetchMetrics(); fetchDeployment(); fetchHistory(); fetchAlerts();
+  setInterval(fetchMetrics,   5000);
+  setInterval(fetchDeployment, 15000);
+  setInterval(fetchHistory,   30000);
+  setInterval(fetchAlerts,    15000);
 </script>
 </body>
 </html>

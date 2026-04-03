@@ -135,6 +135,21 @@
   .btn-add:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}
   @media(max-width:500px){.form-row{flex-direction:column;}}
 
+  /* Search */
+  .search-row{display:flex;gap:8px;margin-bottom:12px;}
+  .search-input{
+    flex:1;background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+    padding:8px 12px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:12px;
+    outline:none;transition:border-color 0.2s,box-shadow 0.2s;
+  }
+  .search-input:focus{border-color:rgba(88,166,255,0.4);box-shadow:0 0 0 3px rgba(88,166,255,0.08);}
+  .search-input::placeholder{color:var(--text-muted);}
+  .sort-select{
+    background:var(--bg3);border:1px solid var(--border);border-radius:8px;
+    padding:8px 10px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:11px;
+    outline:none;cursor:pointer;min-width:130px;
+  }
+
   /* Filters */
   .filters{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;}
   .filter-btn{
@@ -262,6 +277,16 @@
     </div>
   </div>
 
+  <div class="search-row">
+    <input type="search" class="search-input" id="search-input" placeholder="Хайх..." oninput="render()">
+    <select class="sort-select" id="sort-select" onchange="render()" title="Эрэмбэлэх">
+      <option value="date-desc">Шинэ эхэнд</option>
+      <option value="date-asc">Хуучин эхэнд</option>
+      <option value="priority">Тэргүүлэх чиглэл</option>
+      <option value="alpha">Нэрээр</option>
+    </select>
+  </div>
+
   <div class="filters">
     <button type="button" class="filter-btn active" onclick="setFilter('all',this)">Бүгд &middot; <span id="count-all">0</span></button>
     <button type="button" class="filter-btn" onclick="setFilter('pending',this)">Хүлээгдэж буй &middot; <span id="count-pending">0</span></button>
@@ -297,6 +322,8 @@
     render();
   }
 
+  const PRIO_ORDER = { high: 0, medium: 1, low: 2 };
+
   function render() {
     const total   = tasks.length;
     const done    = tasks.filter(t=>t.done).length;
@@ -315,16 +342,31 @@
     document.getElementById('progress-sub').textContent  = `${done} / ${total} даалгавар дууссан`;
     document.getElementById('progress-fill').style.width = pct+'%';
 
-    const filtered =
+    const query = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+    const sort  = document.getElementById('sort-select')?.value || 'date-desc';
+
+    let filtered =
       filter==='done'    ? tasks.filter(t=>t.done)  :
-      filter==='pending' ? tasks.filter(t=>!t.done) : tasks;
+      filter==='pending' ? tasks.filter(t=>!t.done) : [...tasks];
+
+    // Search filter
+    if (query) filtered = filtered.filter(t => t.title.toLowerCase().includes(query));
+
+    // Sort
+    filtered.sort((a, b) => {
+      if (sort === 'priority') return (PRIO_ORDER[a.priority]??1) - (PRIO_ORDER[b.priority]??1);
+      if (sort === 'alpha')    return a.title.localeCompare(b.title);
+      if (sort === 'date-asc') return new Date(a.createdAt) - new Date(b.createdAt);
+      return new Date(b.createdAt) - new Date(a.createdAt); // date-desc default
+    });
 
     const list = document.getElementById('task-list');
     if (!filtered.length) {
+      const noMatchMsg = query ? `"${escHtml(query)}" — тохирох үр дүн байхгүй` : filter==='done'?'Дууссан даалгавар байхгүй':'Даалгавар байхгүй';
       list.innerHTML = `<div class="empty">
         <div class="empty-line"></div>
-        <div class="empty-text">${filter==='done'?'Дууссан даалгавар байхгүй':'Даалгавар байхгүй'}</div>
-        <div class="empty-sub">${filter==='all'?'Дээрх маягтаар шинэ даалгавар нэмнэ үү':''}</div>
+        <div class="empty-text">${noMatchMsg}</div>
+        <div class="empty-sub">${filter==='all'&&!query?'Дээрх маягтаар шинэ даалгавар нэмнэ үү':''}</div>
       </div>`;
       return;
     }

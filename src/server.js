@@ -9,6 +9,9 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
+// In-memory metrics ring buffer (max 20 readings)
+const metricsHistory = [];
+
 // ── Jenkins pipeline inject хийсэн өгөгдөл ─────────────
 const DEPLOY_INFO = {
   version:     process.env.APP_VERSION  || 'v1.0.0',
@@ -110,13 +113,48 @@ app.get('/api/metrics', async (req, res) => {
       si.mem(),
       si.fsSize(),
     ]);
-    res.json({
-      cpu:    { usage: Math.round(cpu.currentLoad), cores: cpu.cpus?.length || 1 },
-      memory: { total: mem.total, used: mem.used, percent: Math.round((mem.used / mem.total) * 100) },
-      disk:   { total: disk[0]?.size || 0, used: disk[0]?.used || 0, percent: Math.round(disk[0]?.use || 0) },
-    });
+    const data = {
+      cpu:       { usage: Math.round(cpu.currentLoad), cores: cpu.cpus?.length || 1 },
+      memory:    { total: mem.total, used: mem.used, percent: Math.round((mem.used / mem.total) * 100) },
+      disk:      { total: disk[0]?.size || 0, used: disk[0]?.used || 0, percent: Math.round(disk[0]?.use || 0) },
+      timestamp: new Date().toISOString(),
+    };
+    metricsHistory.push({ cpu: data.cpu.usage, memory: data.memory.percent, disk: data.disk.percent, t: data.timestamp });
+    if (metricsHistory.length > 20) metricsHistory.shift();
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: 'Could not fetch metrics' });
+  }
+});
+
+// ── API: Metrics history (sparkline data) ───────────────
+app.get('/api/metrics/history', (req, res) => {
+  res.json(metricsHistory);
+});
+
+// ── API: Alerts (threshold-based) ──────────────────────
+app.get('/api/alerts', async (req, res) => {
+  try {
+    const [cpu, mem, disk] = await Promise.all([
+      si.currentLoad(),
+      si.mem(),
+      si.fsSize(),
+    ]);
+    const cpuPct  = Math.round(cpu.currentLoad);
+    const memPct  = Math.round((mem.used / mem.total) * 100);
+    const diskPct = Math.round(disk[0]?.use || 0);
+
+    const alerts = [];
+    if      (cpuPct > 90)  alerts.push({ type: 'critical', metric: 'CPU',    value: cpuPct,  message: `CPU хэрэглээ ${cpuPct}% хүрлээ` });
+    else if (cpuPct > 70)  alerts.push({ type: 'warning',  metric: 'CPU',    value: cpuPct,  message: `CPU хэрэглээ ${cpuPct}% байна` });
+    if      (memPct > 90)  alerts.push({ type: 'critical', metric: 'Memory', value: memPct,  message: `Санах ой ${memPct}% хүрлээ` });
+    else if (memPct > 80)  alerts.push({ type: 'warning',  metric: 'Memory', value: memPct,  message: `Санах ой ${memPct}% байна` });
+    if      (diskPct > 90) alerts.push({ type: 'critical', metric: 'Disk',   value: diskPct, message: `Диск ${diskPct}% дүүрлээ` });
+    else if (diskPct > 80) alerts.push({ type: 'warning',  metric: 'Disk',   value: diskPct, message: `Диск ${diskPct}% байна` });
+
+    res.json({ alerts, count: alerts.length });
+  } catch (err) {
+    res.json({ alerts: [], count: 0 });
   }
 });
 

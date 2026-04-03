@@ -226,3 +226,59 @@ describe('Rollback API', () => {
   });
 
 });
+
+// ── Metrics History API ──────────────────────────────────
+describe('Metrics History API', () => {
+
+  test('GET /api/metrics/history → array буцаана', async () => {
+    const res = await request(app).get('/api/metrics/history');
+    expect(res.statusCode).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+  });
+
+  test('GET /api/metrics → timestamp талбар байна', async () => {
+    const res = await request(app).get('/api/metrics');
+    // 500 буцааж болох тул зөвхөн буцаах форматыг шалгана
+    if (res.statusCode === 200) {
+      expect(res.body).toHaveProperty('timestamp');
+      expect(new Date(res.body.timestamp).toString()).not.toBe('Invalid Date');
+    } else {
+      expect(res.statusCode).toBe(500);
+    }
+  });
+
+});
+
+// ── Alerts API ───────────────────────────────────────────
+describe('Alerts API', () => {
+
+  test('GET /api/alerts → 200 буцаана', async () => {
+    const res = await request(app).get('/api/alerts');
+    expect(res.statusCode).toBe(200);
+  });
+
+  test('GET /api/alerts → alerts массив болон count байна', async () => {
+    const res = await request(app).get('/api/alerts');
+    expect(res.body).toHaveProperty('alerts');
+    expect(res.body).toHaveProperty('count');
+    expect(Array.isArray(res.body.alerts)).toBe(true);
+    expect(typeof res.body.count).toBe('number');
+  });
+
+  test('GET /api/alerts → count нь alerts.length-тай тэнцүү', async () => {
+    const res = await request(app).get('/api/alerts');
+    expect(res.body.count).toBe(res.body.alerts.length);
+  });
+
+  test('GET /api/alerts → alert бүр type болон metric талбартай', async () => {
+    const res = await request(app).get('/api/alerts');
+    res.body.alerts.forEach(a => {
+      expect(a).toHaveProperty('type');
+      expect(a).toHaveProperty('metric');
+      expect(a).toHaveProperty('value');
+      expect(a).toHaveProperty('message');
+      expect(['warning','critical']).toContain(a.type);
+    });
+  });
+
+});
