@@ -227,6 +227,22 @@ describe('Rollback API', () => {
 
 });
 
+// ── Restart API ──────────────────────────────────────────
+describe('Restart API', () => {
+
+  test('POST /api/restart → 200 буцаана', async () => {
+    const res = await request(app).post('/api/restart');
+    expect(res.statusCode).toBe(200);
+  });
+
+  test('POST /api/restart → message талбар байна', async () => {
+    const res = await request(app).post('/api/restart');
+    expect(res.body).toHaveProperty('message');
+    expect(typeof res.body.message).toBe('string');
+  });
+
+});
+
 // ── Metrics History API ──────────────────────────────────
 describe('Metrics History API', () => {
 

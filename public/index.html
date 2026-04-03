@@ -226,6 +226,20 @@
   .rollback-toast.err{border-left:3px solid var(--red);}
   @keyframes toastIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
 
+  /* Restart button */
+  .btn-restart{
+    display:flex;align-items:center;gap:6px;
+    padding:5px 14px;border-radius:6px;font-size:12px;
+    border:1px solid rgba(248,81,73,0.35);
+    background:rgba(248,81,73,0.08);color:var(--red);
+    cursor:pointer;font-family:'JetBrains Mono',monospace;
+    transition:all 0.2s;
+  }
+  .btn-restart:hover{background:rgba(248,81,73,0.15);border-color:rgba(248,81,73,0.6);box-shadow:0 0 12px rgba(248,81,73,0.2);}
+  .btn-restart:disabled{opacity:0.4;cursor:not-allowed;box-shadow:none;}
+  .btn-restart.restarting{animation:restartPulse 1s infinite;}
+  @keyframes restartPulse{0%,100%{opacity:1}50%{opacity:0.5}}
+
   /* Alert bell */
   .alert-bell{
     display:flex;align-items:center;gap:6px;padding:4px 10px;border-radius:6px;
@@ -299,6 +313,9 @@
       </nav>
     </div>
     <div class="header-right">
+      <button type="button" class="btn-restart" id="restart-btn" onclick="restartApp()">
+        &#8635; Restart
+      </button>
       <div class="alert-bell" id="alert-bell" title="System alerts">
         [!] <span class="alert-count" id="alert-count">0</span>
       </div>
@@ -638,6 +655,27 @@
     t.className = 'rollback-toast show ' + type;
     clearTimeout(t._timer);
     t._timer = setTimeout(() => { t.className = 'rollback-toast'; }, 4000);
+  }
+
+  // ── Restart ──────────────────────────────────────────
+  async function restartApp() {
+    if (!confirm('Аппыг дахин ачаалах уу?\n(5 секундын дараа автоматаар дахин холбогдоно)')) return;
+    const btn = document.getElementById('restart-btn');
+    btn.disabled = true;
+    btn.classList.add('restarting');
+    btn.textContent = '... Restarting';
+    try {
+      const r = await fetch('/api/restart', { method: 'POST' });
+      const d = await r.json();
+      showToast(d.message, 'ok');
+      // 6 секундын дараа хуудсыг дахин ачаална
+      setTimeout(() => location.reload(), 6000);
+    } catch(e) {
+      showToast('Restart амжилтгүй', 'err');
+      btn.disabled = false;
+      btn.classList.remove('restarting');
+      btn.innerHTML = '&#8635; Restart';
+    }
   }
 
   // ── Init ─────────────────────────────────────────────────

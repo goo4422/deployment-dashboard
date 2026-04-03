@@ -298,6 +298,22 @@ app.post('/api/rollback/:buildNumber', (req, res) => {
   }, 3000);
 });
 
+// ── API: Restart ────────────────────────────────────────
+app.post('/api/restart', (req, res) => {
+  console.log('[Restart] Container дахин ачаалж байна...');
+
+  res.json({ message: 'Апп дахин ачаалж байна — 5 секундын дараа дахин холбогдоно' });
+
+  if (process.env.NODE_ENV !== 'test') {
+    setTimeout(() => {
+      exec('docker restart dashboard-app', (err) => {
+        if (err) console.error('[Restart] Алдаа:', err.message);
+        else     console.log('[Restart] Амжилттай дахин ачааллаа');
+      });
+    }, 1000);
+  }
+});
+
 // ── Start ───────────────────────────────────────────────
 if (require.main === module) {
   app.listen(PORT, () => {
