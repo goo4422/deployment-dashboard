@@ -29,8 +29,10 @@ pipeline {
                 script {
                     env.BUILD_DATE       = sh(script: 'date -u +%Y-%m-%dT%H:%M:%SZ', returnStdout: true).trim()
                     env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-                    env.GIT_BRANCH_NAME  = sh(script: 'git rev-parse --abbrev-ref HEAD', returnStdout: true).trim()
                     env.APP_VERSION      = "v${BUILD_NUMBER}"
+                    // Detached HEAD үед Jenkins-ийн өөрийн env хувьсагчаас авна
+                    def rawBranch = env.BRANCH_NAME ?: env.GIT_BRANCH ?: ''
+                    env.GIT_BRANCH_NAME  = rawBranch.replaceAll('origin/', '') ?: 'main'
                 }
                 echo "Build: #${BUILD_NUMBER} | ${APP_VERSION} | ${GIT_BRANCH_NAME}@${GIT_COMMIT_SHORT}"
             }
