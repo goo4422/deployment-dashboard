@@ -55,12 +55,11 @@ describe('Deployment Dashboard API', () => {
     expect(res.body).toHaveProperty('commit');
   });
 
-  test('GET /api/pipeline → stage бүр name, status, duration байна', async () => {
+  test('GET /api/pipeline → stage бүр name, status байна', async () => {
     const res = await request(app).get('/api/pipeline');
     res.body.stages.forEach(stage => {
       expect(stage).toHaveProperty('name');
       expect(stage).toHaveProperty('status');
-      expect(stage).toHaveProperty('duration');
     });
   });
 

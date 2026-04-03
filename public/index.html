@@ -381,13 +381,13 @@
           <div class="pipeline-line">
             <div class="pipeline-fill" id="pipeline-fill" style="width:100%"></div>
           </div>
-          <div class="stage"><div class="stage-dot done">GIT</div><div class="stage-name">Checkout</div><div class="stage-time">12s</div></div>
-          <div class="stage"><div class="stage-dot done">NPM</div><div class="stage-name">Install</div><div class="stage-time">48s</div></div>
-          <div class="stage"><div class="stage-dot done">TEST</div><div class="stage-name">Test</div><div class="stage-time">1m 22s</div></div>
-          <div class="stage"><div class="stage-dot done">BLD</div><div class="stage-name">Build</div><div class="stage-time">55s</div></div>
-          <div class="stage"><div class="stage-dot done">IMG</div><div class="stage-name">Docker</div><div class="stage-time">1m 05s</div></div>
-          <div class="stage"><div class="stage-dot done">SSH</div><div class="stage-name">Deploy</div><div class="stage-time">30s</div></div>
-          <div class="stage"><div class="stage-dot done">CHK</div><div class="stage-name">Health</div><div class="stage-time">10s</div></div>
+          <div class="stage"><div class="stage-dot done">GIT</div><div class="stage-name">Checkout</div></div>
+          <div class="stage"><div class="stage-dot done">NPM</div><div class="stage-name">Install</div></div>
+          <div class="stage"><div class="stage-dot done">TEST</div><div class="stage-name">Test</div></div>
+          <div class="stage"><div class="stage-dot done">BLD</div><div class="stage-name">Build</div></div>
+          <div class="stage"><div class="stage-dot done">IMG</div><div class="stage-name">Docker</div></div>
+          <div class="stage"><div class="stage-dot done">SSH</div><div class="stage-name">Deploy</div></div>
+          <div class="stage"><div class="stage-dot done">CHK</div><div class="stage-name">Health</div></div>
         </div>
       </div>
     </div>
@@ -403,12 +403,12 @@
         </div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:16px">
-        <div class="info-row"><span class="info-key">Host</span><span class="info-val">{{ENVIRONMENT}}-server</span></div>
-        <div class="info-row"><span class="info-key">Env</span><span class="info-val c-g">{{ENVIRONMENT}}</span></div>
-        <div class="info-row"><span class="info-key">OS</span><span class="info-val">Ubuntu 24.04</span></div>
-        <div class="info-row"><span class="info-key">Docker</span><span class="info-val c-b">v28.0</span></div>
-        <div class="info-row"><span class="info-key">Node.js</span><span class="info-val">v20.x</span></div>
-        <div class="info-row"><span class="info-key">Jenkins</span><span class="info-val c-y">Local</span></div>
+        <div class="info-row"><span class="info-key">Host</span><span class="info-val" id="si-hostname">...</span></div>
+        <div class="info-row"><span class="info-key">Env</span><span class="info-val c-g" id="si-env">...</span></div>
+        <div class="info-row"><span class="info-key">OS</span><span class="info-val" id="si-os">...</span></div>
+        <div class="info-row"><span class="info-key">Arch</span><span class="info-val" id="si-arch">...</span></div>
+        <div class="info-row"><span class="info-key">Node.js</span><span class="info-val c-b" id="si-node">...</span></div>
+        <div class="info-row"><span class="info-key">Uptime</span><span class="info-val c-y" id="si-uptime">...</span></div>
       </div>
       <div class="metric-row">
         <div class="metric-label"><span class="metric-name">CPU</span><span class="metric-val" id="cpu-val">--%</span></div>
@@ -561,6 +561,7 @@
       const ut = `${h}h ${m}m ${s}s`;
       set('uptime-val', 'Uptime: ' + ut);
       set('uptime-detail', ut);
+      set('si-uptime', ut);
     } catch(e) { set('uptime-val', 'Uptime: running'); }
   }
 
@@ -607,6 +608,22 @@
   function toggleHistory() {
     historyExpanded = !historyExpanded;
     renderHistory();
+  }
+
+  // ── System info ─────────────────────────────────────────
+  async function fetchSysinfo() {
+    try {
+      const r = await fetch('/api/sysinfo');
+      if (!r.ok) throw 0;
+      const s = await r.json();
+      set('si-hostname', s.hostname);
+      set('si-env',      s.env);
+      set('si-os',       s.os);
+      set('si-arch',     s.arch);
+      set('si-node',     s.node);
+    } catch(e) {
+      ['si-hostname','si-os','si-arch','si-node','si-env'].forEach(id => set(id, '--'));
+    }
   }
 
   // ── Alerts ──────────────────────────────────────────────
@@ -679,7 +696,7 @@
   }
 
   // ── Init ─────────────────────────────────────────────────
-  fetchMetrics(); fetchDeployment(); fetchHistory(); fetchAlerts();
+  fetchMetrics(); fetchDeployment(); fetchHistory(); fetchAlerts(); fetchSysinfo();
   setInterval(fetchMetrics,   5000);
   setInterval(fetchDeployment, 15000);
   setInterval(fetchHistory,   30000);

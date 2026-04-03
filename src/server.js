@@ -166,15 +166,34 @@ app.get('/api/pipeline', (req, res) => {
     branch:      DEPLOY_INFO.gitBranch,
     commit:      DEPLOY_INFO.gitCommit.substring(0, 7),
     stages: [
-      { name: 'Checkout', status: 'done', duration: '12s' },
-      { name: 'Install',  status: 'done', duration: '48s' },
-      { name: 'Test',     status: 'done', duration: '1m 22s' },
-      { name: 'Build',    status: 'done', duration: '55s' },
-      { name: 'Docker',   status: 'done', duration: '1m 05s' },
-      { name: 'Deploy',   status: 'done', duration: '30s' },
-      { name: 'Health',   status: 'done', duration: '10s' },
+      { name: 'Checkout', status: 'done' },
+      { name: 'Install',  status: 'done' },
+      { name: 'Test',     status: 'done' },
+      { name: 'Build',    status: 'done' },
+      { name: 'Docker',   status: 'done' },
+      { name: 'Deploy',   status: 'done' },
+      { name: 'Health',   status: 'done' },
     ],
   });
+});
+
+// ── API: System info (бодит өгөгдөл) ───────────────────
+app.get('/api/sysinfo', async (req, res) => {
+  try {
+    const [osInfo, nodeVersion] = await Promise.all([
+      si.osInfo(),
+      Promise.resolve(process.version),
+    ]);
+    res.json({
+      hostname: osInfo.hostname || 'unknown',
+      os:       `${osInfo.distro} ${osInfo.release}`,
+      arch:     osInfo.arch,
+      node:     nodeVersion,
+      env:      DEPLOY_INFO.environment,
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Could not fetch system info' });
+  }
 });
 
 // ── API: Deployment history ─────────────────────────────
