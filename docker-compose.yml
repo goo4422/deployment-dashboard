@@ -40,7 +40,10 @@ services:
       - GIT_BRANCH=${GIT_BRANCH:-main}
       - GIT_COMMIT=${GIT_COMMIT:-unknown}
       - DOCKER_IMAGE=${DOCKER_IMAGE:-deployment-dashboard:local}
+    # Docker socket mount — rollback товч бодитоор ажиллахын тулд
+    user: root
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
       - dashboard-data:/app/data
     restart: unless-stopped
     mem_limit: 256m

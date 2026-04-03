@@ -1,8 +1,9 @@
 require("dotenv").config();
 const express = require('express');
-const si = require('systeminformation');
-const fs = require('fs');
-const path = require('path');
+const si      = require('systeminformation');
+const fs      = require('fs');
+const path    = require('path');
+const { exec } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -244,29 +245,57 @@ app.post('/api/rollback/:buildNumber', (req, res) => {
   const target = history.find(h => h.buildNumber === req.params.buildNumber);
   if (!target) return res.status(404).json({ error: 'Build not found in history' });
 
-  // Rollback event-г history-д бүртгэнэ
+  // History-д rollback бүртгэнэ
   history.unshift({
-    id:          Date.now(),
-    version:     target.version,
-    buildNumber: target.buildNumber,
-    buildDate:   target.buildDate,
-    gitBranch:   target.gitBranch,
-    gitCommit:   target.gitCommit,
-    dockerImage: target.dockerImage,
-    environment: target.environment,
-    status:      'success',
-    deployedAt:  new Date().toISOString(),
-    rollback:    true,
+    id:             Date.now(),
+    version:        target.version,
+    buildNumber:    target.buildNumber,
+    buildDate:      target.buildDate,
+    gitBranch:      target.gitBranch,
+    gitCommit:      target.gitCommit,
+    dockerImage:    target.dockerImage,
+    environment:    target.environment,
+    status:         'success',
+    deployedAt:     new Date().toISOString(),
+    rollback:       true,
     rolledBackFrom: DEPLOY_INFO.buildNumber,
   });
   if (history.length > 20) history.splice(20);
   fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
 
+  // Response-г эхлээд илгээнэ — дараа нь container солино
   res.json({
-    message:  `Rollback to ${target.version} (Build #${target.buildNumber}) initiated`,
+    message:     `Rollback to ${target.version} (Build #${target.buildNumber}) эхэллээ — 3 секундын дараа дахин ачааллана`,
     target,
     dockerImage: target.dockerImage,
   });
+
+  // 3 секундын дараа Docker container-г бодитоор солино
+  setTimeout(() => {
+    const image = target.dockerImage;
+    const cmd = [
+      `docker pull ${image}`,
+      `docker stop dashboard-app || true`,
+      `docker rm   dashboard-app || true`,
+      `docker run -d --name dashboard-app --restart unless-stopped` +
+        ` -p 3000:3000` +
+        ` -v dashboard-data:/app/data` +
+        ` -v /var/run/docker.sock:/var/run/docker.sock` +
+        ` -e APP_VERSION=${target.version}` +
+        ` -e BUILD_NUMBER=${target.buildNumber}` +
+        ` -e GIT_BRANCH=${target.gitBranch || 'main'}` +
+        ` -e GIT_COMMIT=${target.gitCommit || 'unknown'}` +
+        ` -e NODE_ENV=production` +
+        ` -e DOCKER_IMAGE=${image}` +
+        ` ${image}`,
+    ].join(' && ');
+
+    console.log(`[Rollback] ${target.version} (${image}) руу буцаж байна...`);
+    exec(cmd, (err) => {
+      if (err) console.error('[Rollback] Алдаа:', err.message);
+      else     console.log('[Rollback] Амжилттай:', image);
+    });
+  }, 3000);
 });
 
 // ── Start ───────────────────────────────────────────────

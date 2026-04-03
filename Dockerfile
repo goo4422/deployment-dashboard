@@ -23,6 +23,9 @@ LABEL org.opencontainers.image.title="DeployWatch" \
 
 WORKDIR /app
 
+# Docker socket-г ашиглахын тулд docker-cli суулгана
+RUN apk add --no-cache docker-cli
+
 # Non-root user — аюулгүй байдлын тулд
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
