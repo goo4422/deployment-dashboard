@@ -123,8 +123,10 @@ pipeline {
                                 docker rm   dashboard-app 2>/dev/null || true
 
                                 echo "[3/4] Шинэ container эхлүүлнэ..."
+                                DOCKER_GID=$(stat -c '%g' /var/run/docker.sock)
                                 docker run -d --name dashboard-app \\
                                     --restart unless-stopped \\
+                                    --group-add \$DOCKER_GID \\
                                     -p ${APP_PORT}:3000 \\
                                     -v dashboard-data:/app/data \\
                                     -v /var/run/docker.sock:/var/run/docker.sock \\
