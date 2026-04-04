@@ -380,13 +380,13 @@
           <div class="pipeline-line">
             <div class="pipeline-fill" id="pipeline-fill" style="width:100%"></div>
           </div>
-          <div class="stage"><div class="stage-dot done">GIT</div><div class="stage-name">Checkout</div></div>
-          <div class="stage"><div class="stage-dot done">NPM</div><div class="stage-name">Install</div></div>
-          <div class="stage"><div class="stage-dot done">TEST</div><div class="stage-name">Test</div></div>
-          <div class="stage"><div class="stage-dot done">BLD</div><div class="stage-name">Build</div></div>
-          <div class="stage"><div class="stage-dot done">IMG</div><div class="stage-name">Docker</div></div>
-          <div class="stage"><div class="stage-dot done">SSH</div><div class="stage-name">Deploy</div></div>
-          <div class="stage"><div class="stage-dot done">CHK</div><div class="stage-name">Health</div></div>
+          <div class="stage"><div class="stage-dot done">GIT</div><div class="stage-name">Checkout</div><div class="stage-time" id="dur-checkout">–</div></div>
+          <div class="stage"><div class="stage-dot done">NPM</div><div class="stage-name">Install</div><div class="stage-time" id="dur-install">–</div></div>
+          <div class="stage"><div class="stage-dot done">TEST</div><div class="stage-name">Test</div><div class="stage-time" id="dur-test">–</div></div>
+          <div class="stage"><div class="stage-dot done">BLD</div><div class="stage-name">Build</div><div class="stage-time" id="dur-build">–</div></div>
+          <div class="stage"><div class="stage-dot done">IMG</div><div class="stage-name">Docker</div><div class="stage-time" id="dur-docker">–</div></div>
+          <div class="stage"><div class="stage-dot done">SSH</div><div class="stage-name">Deploy</div><div class="stage-time" id="dur-deploy">–</div></div>
+          <div class="stage"><div class="stage-dot done">CHK</div><div class="stage-name">Health</div><div class="stage-time" id="dur-health">–</div></div>
         </div>
       </div>
     </div>
@@ -408,6 +408,8 @@
         <div class="info-row"><span class="info-key">Arch</span><span class="info-val" id="si-arch">...</span></div>
         <div class="info-row"><span class="info-key">Node.js</span><span class="info-val c-b" id="si-node">...</span></div>
         <div class="info-row"><span class="info-key">Uptime</span><span class="info-val c-y" id="si-uptime">...</span></div>
+        <div class="info-row"><span class="info-key">Restarts</span><span class="info-val c-r" id="si-restarts">...</span></div>
+        <div class="info-row"><span class="info-key">Requests</span><span class="info-val" id="si-requests">...</span></div>
       </div>
       <div class="metric-row">
         <div class="metric-label"><span class="metric-name">CPU</span><span class="metric-val" id="cpu-val">--%</span></div>
@@ -535,6 +537,7 @@
       setBar('cpu-bar',  'cpu-val',  m.cpu.usage,       m.cpu.usage + '%');
       setBar('mem-bar',  'mem-val',  m.memory.percent,  m.memory.percent + '%');
       setBar('disk-bar', 'disk-val', m.disk.percent,    m.disk.percent + '%');
+      if (m.requests != null) set('si-requests', m.requests.toLocaleString());
       const upd = document.getElementById('metrics-updated');
       if (upd) upd.textContent = 'updated ' + ago(m.timestamp || new Date().toISOString());
     } catch(e) {
@@ -625,6 +628,29 @@
     }
   }
 
+  // ── Pipeline durations ──────────────────────────────────
+  async function fetchPipeline() {
+    try {
+      const r = await fetch('/api/pipeline');
+      if (!r.ok) throw 0;
+      const d = await r.json();
+      const ids = ['dur-checkout','dur-install','dur-test','dur-build','dur-docker','dur-deploy','dur-health'];
+      d.stages.forEach((s, i) => {
+        if (ids[i]) set(ids[i], s.duration > 0 ? s.duration + 's' : '–');
+      });
+    } catch(e) {}
+  }
+
+  // ── Container info ───────────────────────────────────────
+  async function fetchContainer() {
+    try {
+      const r = await fetch('/api/container');
+      if (!r.ok) throw 0;
+      const c = await r.json();
+      set('si-restarts', c.restartCount);
+    } catch(e) { set('si-restarts', '–'); }
+  }
+
   // ── Alerts ──────────────────────────────────────────────
   async function fetchAlerts() {
     try {
@@ -696,10 +722,12 @@
 
   // ── Init ─────────────────────────────────────────────────
   fetchMetrics(); fetchDeployment(); fetchHistory(); fetchAlerts(); fetchSysinfo();
-  setInterval(fetchMetrics,   5000);
+  fetchPipeline(); fetchContainer();
+  setInterval(fetchMetrics,    5000);
   setInterval(fetchDeployment, 15000);
-  setInterval(fetchHistory,   30000);
-  setInterval(fetchAlerts,    15000);
+  setInterval(fetchHistory,    30000);
+  setInterval(fetchAlerts,     15000);
+  setInterval(fetchContainer,  30000);
 </script>
 </body>
 </html>

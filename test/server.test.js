@@ -63,12 +63,28 @@ describe('Deployment Dashboard API', () => {
     });
   });
 
+  test('GET /api/pipeline → stage бүр duration тоо байна', async () => {
+    const res = await request(app).get('/api/pipeline');
+    res.body.stages.forEach(stage => {
+      expect(stage).toHaveProperty('duration');
+      expect(typeof stage.duration).toBe('number');
+    });
+  });
+
   test('GET /api/metrics → cpu, memory, disk байна', async () => {
     const res = await request(app).get('/api/metrics');
     expect(res.statusCode).toBe(200);
     expect(res.body).toHaveProperty('cpu');
     expect(res.body).toHaveProperty('memory');
     expect(res.body).toHaveProperty('disk');
+  });
+
+  test('GET /api/metrics → requests тоо байна', async () => {
+    const res = await request(app).get('/api/metrics');
+    if (res.statusCode === 200) {
+      expect(res.body).toHaveProperty('requests');
+      expect(typeof res.body.requests).toBe('number');
+    }
   });
 
   test('GET /api/metrics → cpu.usage тоо байна', async () => {
@@ -95,6 +111,25 @@ describe('Deployment Dashboard API', () => {
       expect(res.body[0]).toHaveProperty('deployedAt');
       expect(res.body[0]).toHaveProperty('version');
       expect(res.body[0]).toHaveProperty('buildNumber');
+    }
+  });
+
+});
+
+// ── Container API ────────────────────────────────────────
+describe('Container API', () => {
+
+  test('GET /api/container → 200 эсвэл 500 буцаана', async () => {
+    const res = await request(app).get('/api/container');
+    expect([200, 500]).toContain(res.statusCode);
+  });
+
+  test('GET /api/container → 200 үед шаардлагатай талбарууд байна', async () => {
+    const res = await request(app).get('/api/container');
+    if (res.statusCode === 200) {
+      expect(res.body).toHaveProperty('restartCount');
+      expect(res.body).toHaveProperty('startedAt');
+      expect(res.body).toHaveProperty('status');
     }
   });
 

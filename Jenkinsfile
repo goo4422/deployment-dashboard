@@ -25,14 +25,15 @@ pipeline {
 
         stage('Checkout') {
             steps {
-                checkout scm
                 script {
+                    def t = System.currentTimeMillis()
+                    checkout scm
                     env.BUILD_DATE       = sh(script: 'date -u +%Y-%m-%dT%H:%M:%SZ', returnStdout: true).trim()
                     env.GIT_COMMIT_SHORT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
                     env.APP_VERSION      = "v${BUILD_NUMBER}"
-                    // Detached HEAD үед Jenkins-ийн өөрийн env хувьсагчаас авна
                     def rawBranch = env.BRANCH_NAME ?: env.GIT_BRANCH ?: ''
                     env.GIT_BRANCH_NAME  = rawBranch.replaceAll('origin/', '') ?: 'main'
+                    env.DURATION_CHECKOUT = "${((System.currentTimeMillis() - t) / 1000).toInteger()}"
                 }
                 echo "Build: #${BUILD_NUMBER} | ${APP_VERSION} | ${GIT_BRANCH_NAME}@${GIT_COMMIT_SHORT}"
             }
@@ -40,13 +41,21 @@ pipeline {
 
         stage('Install') {
             steps {
-                sh 'npm ci'
+                script {
+                    def t = System.currentTimeMillis()
+                    sh 'npm ci'
+                    env.DURATION_INSTALL = "${((System.currentTimeMillis() - t) / 1000).toInteger()}"
+                }
             }
         }
 
         stage('Test') {
             steps {
-                sh 'npm test'
+                script {
+                    def t = System.currentTimeMillis()
+                    sh 'npm test'
+                    env.DURATION_TEST = "${((System.currentTimeMillis() - t) / 1000).toInteger()}"
+                }
             }
             post {
                 failure {
@@ -57,24 +66,37 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
-                sh '''
-                    export PATH=/opt/homebrew/bin:$PATH
-                    TEMP_CONFIG=$(mktemp -d)
-                    cp -r $HOME/.docker/. $TEMP_CONFIG/ 2>/dev/null || true
-                    printf '{"auths":{}}' > $TEMP_CONFIG/config.json
-                    export DOCKER_CONFIG=$TEMP_CONFIG
-                    echo $DOCKER_HUB_PSW | docker login -u $DOCKER_HUB_USR --password-stdin
-                    docker buildx create --name cicd-builder --driver docker-container --use 2>/dev/null || docker buildx use cicd-builder
-                    docker buildx inspect cicd-builder --bootstrap
-                    docker buildx build --no-cache --platform linux/amd64 \
-                        --build-arg APP_VERSION=$APP_VERSION \
-                        --build-arg BUILD_DATE=$BUILD_DATE \
-                        --build-arg GIT_COMMIT=$GIT_COMMIT_SHORT \
-                        -t $IMAGE_NAME:$APP_VERSION \
-                        -t $IMAGE_NAME:latest \
-                        --push .
-                    docker logout
-                '''
+                script {
+                    // Build: login + buildx builder тохиргоо
+                    def tBuild = System.currentTimeMillis()
+                    env.TEMP_DOCKER_CONFIG = sh(script: 'mktemp -d', returnStdout: true).trim()
+                    sh '''
+                        export PATH=/opt/homebrew/bin:$PATH
+                        cp -r $HOME/.docker/. $TEMP_DOCKER_CONFIG/ 2>/dev/null || true
+                        printf '{"auths":{}}' > $TEMP_DOCKER_CONFIG/config.json
+                        export DOCKER_CONFIG=$TEMP_DOCKER_CONFIG
+                        echo $DOCKER_HUB_PSW | docker login -u $DOCKER_HUB_USR --password-stdin
+                        docker buildx create --name cicd-builder --driver docker-container --use 2>/dev/null || docker buildx use cicd-builder
+                        docker buildx inspect cicd-builder --bootstrap
+                    '''
+                    env.DURATION_BUILD = "${((System.currentTimeMillis() - tBuild) / 1000).toInteger()}"
+
+                    // Docker: image build + registry push
+                    def tDocker = System.currentTimeMillis()
+                    sh '''
+                        export PATH=/opt/homebrew/bin:$PATH
+                        export DOCKER_CONFIG=$TEMP_DOCKER_CONFIG
+                        docker buildx build --no-cache --platform linux/amd64 \
+                            --build-arg APP_VERSION=$APP_VERSION \
+                            --build-arg BUILD_DATE=$BUILD_DATE \
+                            --build-arg GIT_COMMIT=$GIT_COMMIT_SHORT \
+                            -t $IMAGE_NAME:$APP_VERSION \
+                            -t $IMAGE_NAME:latest \
+                            --push .
+                        docker logout
+                    '''
+                    env.DURATION_DOCKER = "${((System.currentTimeMillis() - tDocker) / 1000).toInteger()}"
+                }
             }
         }
 
@@ -83,40 +105,49 @@ pipeline {
                 expression { env.GIT_BRANCH_NAME == 'main' || env.GIT_BRANCH_NAME == 'master' }
             }
             steps {
-                echo "EC2 дээр deploy хийж байна: ${EC2_USER}@${EC2_HOST}"
-                sshagent(['ec2-ssh']) {
-                    sh """
-                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
-                            # Rollback-д зориулж одоогийн image-г хадгална
-                            PREV_IMAGE=\$(docker inspect dashboard-app --format="{{.Config.Image}}" 2>/dev/null || echo "none")
-                            echo "Previous image: \$PREV_IMAGE"
-                            echo "\$PREV_IMAGE" > /tmp/prev-dashboard-image.txt
+                script {
+                    def t = System.currentTimeMillis()
+                    echo "EC2 дээр deploy хийж байна: ${EC2_USER}@${EC2_HOST}"
+                    sshagent(['ec2-ssh']) {
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
+                                PREV_IMAGE=\$(docker inspect dashboard-app --format="{{.Config.Image}}" 2>/dev/null || echo "none")
+                                echo "Previous image: \$PREV_IMAGE"
+                                echo "\$PREV_IMAGE" > /tmp/prev-dashboard-image.txt
 
-                            echo "[1/4] Шинэ image татаж байна..."
-                            docker pull ${IMAGE_NAME}:latest
+                                echo "[1/4] Шинэ image татаж байна..."
+                                docker pull ${IMAGE_NAME}:latest
 
-                            echo "[2/4] Хуучин container зогсооно..."
-                            docker stop dashboard-app 2>/dev/null || true
-                            docker rm   dashboard-app 2>/dev/null || true
+                                echo "[2/4] Хуучин container зогсооно..."
+                                docker stop dashboard-app 2>/dev/null || true
+                                docker rm   dashboard-app 2>/dev/null || true
 
-                            echo "[3/4] Шинэ container эхлүүлнэ..."
-                            docker run -d --name dashboard-app \\
-                                --restart unless-stopped \\
-                                -p ${APP_PORT}:3000 \\
-                                -v dashboard-data:/app/data \\
-                                -e APP_VERSION=${APP_VERSION} \\
-                                -e BUILD_NUMBER=${BUILD_NUMBER} \\
-                                -e BUILD_DATE=${BUILD_DATE} \\
-                                -e GIT_BRANCH=${GIT_BRANCH_NAME} \\
-                                -e GIT_COMMIT=${GIT_COMMIT_SHORT} \\
-                                -e NODE_ENV=production \\
-                                -e DOCKER_IMAGE=${IMAGE_NAME}:${APP_VERSION} \\
-                                ${IMAGE_NAME}:latest
+                                echo "[3/4] Шинэ container эхлүүлнэ..."
+                                docker run -d --name dashboard-app \\
+                                    --restart unless-stopped \\
+                                    -p ${APP_PORT}:3000 \\
+                                    -v dashboard-data:/app/data \\
+                                    -v /var/run/docker.sock:/var/run/docker.sock \\
+                                    -e APP_VERSION=${APP_VERSION} \\
+                                    -e BUILD_NUMBER=${BUILD_NUMBER} \\
+                                    -e BUILD_DATE=${BUILD_DATE} \\
+                                    -e GIT_BRANCH=${GIT_BRANCH_NAME} \\
+                                    -e GIT_COMMIT=${GIT_COMMIT_SHORT} \\
+                                    -e NODE_ENV=production \\
+                                    -e DOCKER_IMAGE=${IMAGE_NAME}:${APP_VERSION} \\
+                                    -e DURATION_CHECKOUT=${DURATION_CHECKOUT} \\
+                                    -e DURATION_INSTALL=${DURATION_INSTALL} \\
+                                    -e DURATION_TEST=${DURATION_TEST} \\
+                                    -e DURATION_BUILD=${DURATION_BUILD} \\
+                                    -e DURATION_DOCKER=${DURATION_DOCKER} \\
+                                    ${IMAGE_NAME}:latest
 
-                            echo "[4/4] Хуучин image-уудыг цэвэрлэнэ..."
-                            docker image prune -f
-                        '
-                    """
+                                echo "[4/4] Хуучин image-уудыг цэвэрлэнэ..."
+                                docker image prune -f
+                            '
+                        """
+                    }
+                    env.DURATION_DEPLOY = "${((System.currentTimeMillis() - t) / 1000).toInteger()}"
                 }
             }
         }
@@ -127,13 +158,16 @@ pipeline {
             }
             steps {
                 script {
+                    def t = System.currentTimeMillis()
                     try {
                         retry(10) {
                             sleep(time: 10, unit: 'SECONDS')
                             sh "curl -sf http://${EC2_HOST}:${APP_PORT}/health | grep -q 'ok'"
                         }
+                        env.DURATION_HEALTH = "${((System.currentTimeMillis() - t) / 1000).toInteger()}"
                         echo "Health check амжилттай — апп ажиллаж байна."
                     } catch (err) {
+                        env.DURATION_HEALTH = "${((System.currentTimeMillis() - t) / 1000).toInteger()}"
                         echo "Health check амжилтгүй — автомат rollback эхэлж байна..."
                         sshagent(['ec2-ssh']) {
                             sh """
@@ -147,6 +181,7 @@ pipeline {
                                             --restart unless-stopped \\
                                             -p ${APP_PORT}:3000 \\
                                             -v dashboard-data:/app/data \\
+                                            -v /var/run/docker.sock:/var/run/docker.sock \\
                                             -e NODE_ENV=production \\
                                             "\$PREV_IMAGE"
                                         echo "Rollback амжилттай: \$PREV_IMAGE"

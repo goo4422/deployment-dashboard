@@ -10,6 +10,10 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.json());
 
+// ── HTTP хүсэлтийн тоолуур ──────────────────────────────
+let requestCount = 0;
+app.use((req, res, next) => { requestCount++; next(); });
+
 // In-memory metrics ring buffer (max 20 readings)
 const metricsHistory = [];
 
@@ -107,6 +111,7 @@ app.get('/api/metrics', async (req, res) => {
       cpu:       { usage: Math.round(cpu.currentLoad), cores: cpu.cpus?.length || 1 },
       memory:    { total: mem.total, used: mem.used, percent: Math.round((mem.used / mem.total) * 100) },
       disk:      { total: disk[0]?.size || 0, used: disk[0]?.used || 0, percent: Math.round(disk[0]?.use || 0) },
+      requests:  requestCount,
       timestamp: new Date().toISOString(),
     };
     metricsHistory.push({ cpu: data.cpu.usage, memory: data.memory.percent, disk: data.disk.percent, t: data.timestamp });
@@ -155,13 +160,13 @@ app.get('/api/pipeline', (req, res) => {
     branch:      DEPLOY_INFO.gitBranch,
     commit:      DEPLOY_INFO.gitCommit.substring(0, 7),
     stages: [
-      { name: 'Checkout', status: 'done' },
-      { name: 'Install',  status: 'done' },
-      { name: 'Test',     status: 'done' },
-      { name: 'Build',    status: 'done' },
-      { name: 'Docker',   status: 'done' },
-      { name: 'Deploy',   status: 'done' },
-      { name: 'Health',   status: 'done' },
+      { name: 'Checkout', status: 'done', duration: parseInt(process.env.DURATION_CHECKOUT) || 0 },
+      { name: 'Install',  status: 'done', duration: parseInt(process.env.DURATION_INSTALL)  || 0 },
+      { name: 'Test',     status: 'done', duration: parseInt(process.env.DURATION_TEST)     || 0 },
+      { name: 'Build',    status: 'done', duration: parseInt(process.env.DURATION_BUILD)    || 0 },
+      { name: 'Docker',   status: 'done', duration: parseInt(process.env.DURATION_DOCKER)   || 0 },
+      { name: 'Deploy',   status: 'done', duration: parseInt(process.env.DURATION_DEPLOY)   || 0 },
+      { name: 'Health',   status: 'done', duration: parseInt(process.env.DURATION_HEALTH)   || 0 },
     ],
   });
 });
@@ -198,6 +203,25 @@ function readHistory() {
 // ── API: Deployment history ─────────────────────────────
 app.get('/api/history', (req, res) => {
   res.json(readHistory());
+});
+
+// ── API: Container info ─────────────────────────────────
+app.get('/api/container', (req, res) => {
+  exec('docker inspect dashboard-app', (err, stdout) => {
+    if (err) return res.status(500).json({ error: 'Docker inspect failed' });
+    try {
+      const info = JSON.parse(stdout)[0];
+      res.json({
+        id:           info.Id.substring(0, 12),
+        image:        info.Config.Image,
+        status:       info.State.Status,
+        startedAt:    info.State.StartedAt,
+        restartCount: info.RestartCount,
+      });
+    } catch (e) {
+      res.status(500).json({ error: 'Parse failed' });
+    }
+  });
 });
 
 // ── API: Rollback ───────────────────────────────────────
