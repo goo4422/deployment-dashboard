@@ -64,7 +64,7 @@ pipeline {
                     printf '{"auths":{}}' > $TEMP_CONFIG/config.json
                     export DOCKER_CONFIG=$TEMP_CONFIG
                     echo $DOCKER_HUB_PSW | docker login -u $DOCKER_HUB_USR --password-stdin
-                    docker buildx build \
+                    docker buildx build --no-cache \
                         --build-arg APP_VERSION=$APP_VERSION \
                         --build-arg BUILD_DATE=$BUILD_DATE \
                         --build-arg GIT_COMMIT=$GIT_COMMIT_SHORT \
