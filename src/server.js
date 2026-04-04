@@ -27,7 +27,6 @@ const DEPLOY_INFO = {
 // ── Data persistence ────────────────────────────────────
 const DATA_DIR     = path.join(__dirname, '../data');
 const HISTORY_FILE = path.join(DATA_DIR, 'history.json');
-const TASKS_FILE   = path.join(DATA_DIR, 'tasks.json');
 
 function initData() {
   if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -36,21 +35,15 @@ function initData() {
     fs.writeFileSync(HISTORY_FILE, '[]');
   }
 
-  if (!fs.existsSync(TASKS_FILE)) {
-    const seed = [
-      { id: 1, title: 'Docker container тохиргоо шалгах',       priority: 'high',   done: true,  createdAt: new Date().toISOString() },
-      { id: 2, title: 'Jenkins pipeline CI/CD тохируулах',       priority: 'high',   done: true,  createdAt: new Date().toISOString() },
-      { id: 3, title: 'EC2 серверт автомат deploy хийх',         priority: 'high',   done: true,  createdAt: new Date().toISOString() },
-      { id: 4, title: 'Health check endpoint нэмэх',             priority: 'medium', done: true,  createdAt: new Date().toISOString() },
-      { id: 5, title: 'Docker volume persistence тохируулах',    priority: 'medium', done: false, createdAt: new Date().toISOString() },
-      { id: 6, title: 'Deployment history хадгалах систем нэмэх', priority: 'medium', done: false, createdAt: new Date().toISOString() },
-      { id: 7, title: 'Task Manager веб апп нэмэх',              priority: 'low',    done: false, createdAt: new Date().toISOString() },
-    ];
-    fs.writeFileSync(TASKS_FILE, JSON.stringify(seed, null, 2));
-  }
-
   // Энэ deploy-г history-д бүртгэнэ (давхардуулахгүй)
-  const history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+  let history;
+  try {
+    history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+    if (!Array.isArray(history)) throw new Error('invalid');
+  } catch {
+    history = [];
+    fs.writeFileSync(HISTORY_FILE, '[]');
+  }
   const alreadyRecorded = history.some(h => h.buildNumber === DEPLOY_INFO.buildNumber);
   if (!alreadyRecorded) {
     history.unshift({
@@ -84,10 +77,6 @@ app.get('/', (req, res) => {
     .replace(/\{\{ENVIRONMENT\}\}/g,   DEPLOY_INFO.environment)
     .replace(/\{\{DOCKER_IMAGE\}\}/g,  DEPLOY_INFO.dockerImage);
   res.send(html);
-});
-
-app.get('/tasks', (req, res) => {
-  res.sendFile(path.join(__dirname, '../public/tasks.html'));
 });
 
 app.use(express.static(path.join(__dirname, '../public')));
@@ -196,71 +185,37 @@ app.get('/api/sysinfo', async (req, res) => {
   }
 });
 
+// ── Туслах: history.json найдвартай унших ───────────────
+function readHistory() {
+  try {
+    const data = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+    return Array.isArray(data) ? data : [];
+  } catch {
+    return [];
+  }
+}
+
 // ── API: Deployment history ─────────────────────────────
 app.get('/api/history', (req, res) => {
-  const history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
-  res.json(history);
-});
-
-// ── API: Tasks CRUD ─────────────────────────────────────
-const readTasks  = () => JSON.parse(fs.readFileSync(TASKS_FILE, 'utf8'));
-const writeTasks = (tasks) => fs.writeFileSync(TASKS_FILE, JSON.stringify(tasks, null, 2));
-
-app.get('/api/tasks', (req, res) => {
-  res.json(readTasks());
-});
-
-app.post('/api/tasks', (req, res) => {
-  const { title, priority = 'medium' } = req.body;
-  if (!title || typeof title !== 'string' || !title.trim()) {
-    return res.status(400).json({ error: 'Title is required' });
-  }
-  const tasks = readTasks();
-  const task = {
-    id:        Date.now(),
-    title:     title.trim(),
-    priority,
-    done:      false,
-    createdAt: new Date().toISOString(),
-  };
-  tasks.push(task);
-  writeTasks(tasks);
-  res.status(201).json(task);
-});
-
-app.put('/api/tasks/:id', (req, res) => {
-  const tasks = readTasks();
-  const idx = tasks.findIndex(t => t.id === parseInt(req.params.id));
-  if (idx === -1) return res.status(404).json({ error: 'Task not found' });
-  const { title, priority, done } = req.body;
-  if (title !== undefined) tasks[idx].title = title.trim();
-  if (priority !== undefined) tasks[idx].priority = priority;
-  if (done !== undefined) tasks[idx].done = Boolean(done);
-  writeTasks(tasks);
-  res.json(tasks[idx]);
-});
-
-app.delete('/api/tasks/:id', (req, res) => {
-  const tasks = readTasks();
-  const idx = tasks.findIndex(t => t.id === parseInt(req.params.id));
-  if (idx === -1) return res.status(404).json({ error: 'Task not found' });
-  tasks.splice(idx, 1);
-  writeTasks(tasks);
-  res.status(204).end();
+  res.json(readHistory());
 });
 
 // ── API: Rollback ───────────────────────────────────────
 app.get('/api/rollback/candidates', (req, res) => {
-  const history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
-  // Одоогийн build-аас өмнөх хувилбарууд
-  const candidates = history
+  const candidates = readHistory()
     .filter(h => h.buildNumber !== DEPLOY_INFO.buildNumber && h.status === 'success')
     .slice(0, 5);
   res.json(candidates);
 });
 
+// Docker image нэрний хүчинтэй формат: namespace/name:tag
+const VALID_IMAGE = /^[a-z0-9]([a-z0-9._/-]*[a-z0-9])?(:[a-zA-Z0-9._-]+)?$/;
+
 app.post('/api/rollback/:buildNumber', (req, res) => {
-  const history = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+  if (!/^\d+$/.test(req.params.buildNumber)) {
+    return res.status(400).json({ error: 'Invalid build number' });
+  }
+  const history = readHistory();
   const target = history.find(h => h.buildNumber === req.params.buildNumber);
   if (!target) return res.status(404).json({ error: 'Build not found in history' });
 
@@ -292,6 +247,10 @@ app.post('/api/rollback/:buildNumber', (req, res) => {
   // 3 секундын дараа Docker container-г бодитоор солино
   setTimeout(() => {
     const image = target.dockerImage;
+    if (!VALID_IMAGE.test(image)) {
+      console.error('[Rollback] Буруу image нэр:', image);
+      return;
+    }
     const cmd = [
       `docker pull ${image}`,
       `docker stop dashboard-app || true`,
