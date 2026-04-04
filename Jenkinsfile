@@ -59,8 +59,10 @@ pipeline {
             steps {
                 sh '''
                     export PATH=/opt/homebrew/bin:$PATH
-                    export DOCKER_CONFIG=$(mktemp -d)
-                    echo '{}' > "$DOCKER_CONFIG/config.json"
+                    TEMP_CONFIG=$(mktemp -d)
+                    cp -r $HOME/.docker/. $TEMP_CONFIG/ 2>/dev/null || true
+                    printf '{"auths":{}}' > $TEMP_CONFIG/config.json
+                    export DOCKER_CONFIG=$TEMP_CONFIG
                     echo $DOCKER_HUB_PSW | docker login -u $DOCKER_HUB_USR --password-stdin
                     docker buildx build \
                         --build-arg APP_VERSION=$APP_VERSION \
