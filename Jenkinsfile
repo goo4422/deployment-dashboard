@@ -64,7 +64,9 @@ pipeline {
                     printf '{"auths":{}}' > $TEMP_CONFIG/config.json
                     export DOCKER_CONFIG=$TEMP_CONFIG
                     echo $DOCKER_HUB_PSW | docker login -u $DOCKER_HUB_USR --password-stdin
-                    docker buildx build --no-cache \
+                    docker buildx create --name cicd-builder --driver docker-container --use 2>/dev/null || docker buildx use cicd-builder
+                    docker buildx inspect cicd-builder --bootstrap
+                    docker buildx build --no-cache --platform linux/amd64 \
                         --build-arg APP_VERSION=$APP_VERSION \
                         --build-arg BUILD_DATE=$BUILD_DATE \
                         --build-arg GIT_COMMIT=$GIT_COMMIT_SHORT \
