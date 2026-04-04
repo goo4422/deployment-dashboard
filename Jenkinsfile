@@ -62,7 +62,7 @@ pipeline {
                     export DOCKER_CONFIG=$(mktemp -d)
                     echo '{}' > "$DOCKER_CONFIG/config.json"
                     echo $DOCKER_HUB_PSW | docker login -u $DOCKER_HUB_USR --password-stdin
-                    docker buildx build --platform linux/amd64 \
+                    docker buildx build \
                         --build-arg APP_VERSION=$APP_VERSION \
                         --build-arg BUILD_DATE=$BUILD_DATE \
                         --build-arg GIT_COMMIT=$GIT_COMMIT_SHORT \
