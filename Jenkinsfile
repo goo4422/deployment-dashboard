@@ -111,18 +111,24 @@ pipeline {
                     sshagent(['ec2-ssh']) {
                         sh """
                             ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
-                                PREV_IMAGE=\$(docker inspect dashboard-app --format="{{.Config.Image}}" 2>/dev/null || echo "none")
-                                echo "Previous image: \$PREV_IMAGE"
-                                echo "\$PREV_IMAGE" > /tmp/prev-dashboard-image.txt
+                                # Хуучин image ID-г хадгална (tag биш, ID ашиглана — prune-д устахгүй)
+                                PREV_ID=\$(docker inspect dashboard-app --format="{{.Image}}" 2>/dev/null || echo "none")
+                                echo "Previous image ID: \$PREV_ID"
+                                echo "\$PREV_ID" > /tmp/prev-dashboard-image.txt
 
-                                echo "[1/4] Шинэ image татаж байна..."
+                                # Rollback-д зориулж тусдаа tag хийнэ (pull-н өмнө)
+                                if [ "\$PREV_ID" != "none" ] && [ -n "\$PREV_ID" ]; then
+                                    docker tag "\$PREV_ID" ${IMAGE_NAME}:rollback 2>/dev/null || true
+                                fi
+
+                                echo "[1/3] Шинэ image татаж байна..."
                                 docker pull ${IMAGE_NAME}:latest
 
-                                echo "[2/4] Хуучин container зогсооно..."
+                                echo "[2/3] Хуучин container зогсооно..."
                                 docker stop dashboard-app 2>/dev/null || true
                                 docker rm   dashboard-app 2>/dev/null || true
 
-                                echo "[3/4] Шинэ container эхлүүлнэ..."
+                                echo "[3/3] Шинэ container эхлүүлнэ..."
                                 DOCKER_GID=\$(stat -c '%g' /var/run/docker.sock)
                                 docker run -d --name dashboard-app \\
                                     --restart unless-stopped \\
@@ -143,9 +149,6 @@ pipeline {
                                     -e DURATION_BUILD=${DURATION_BUILD} \\
                                     -e DURATION_DOCKER=${DURATION_DOCKER} \\
                                     ${IMAGE_NAME}:latest
-
-                                echo "[4/4] Хуучин image-уудыг цэвэрлэнэ..."
-                                docker image prune -f
                             '
                         """
                     }
@@ -168,25 +171,36 @@ pipeline {
                         }
                         env.DURATION_HEALTH = "${((System.currentTimeMillis() - t) / 1000).toInteger()}"
                         echo "Health check амжилттай — апп ажиллаж байна."
+                        // Зөвхөн амжилттай болсон үед л хуучин image-уудыг цэвэрлэнэ
+                        sshagent(['ec2-ssh']) {
+                            sh """
+                                ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
+                                    docker rmi ${IMAGE_NAME}:rollback 2>/dev/null || true
+                                    docker image prune -f
+                                '
+                            """
+                        }
                     } catch (err) {
                         env.DURATION_HEALTH = "${((System.currentTimeMillis() - t) / 1000).toInteger()}"
                         echo "Health check амжилтгүй — автомат rollback эхэлж байна..."
                         sshagent(['ec2-ssh']) {
                             sh """
                                 ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
-                                    PREV_IMAGE=\$(cat /tmp/prev-dashboard-image.txt 2>/dev/null || echo "none")
-                                    if [ "\$PREV_IMAGE" != "none" ] && [ "\$PREV_IMAGE" != "" ]; then
-                                        echo "Rollback: \$PREV_IMAGE рүү буцаж байна..."
+                                    PREV_ID=\$(cat /tmp/prev-dashboard-image.txt 2>/dev/null || echo "none")
+                                    if [ "\$PREV_ID" != "none" ] && [ -n "\$PREV_ID" ]; then
+                                        echo "Rollback: \$PREV_ID рүү буцаж байна..."
                                         docker stop dashboard-app 2>/dev/null || true
                                         docker rm   dashboard-app 2>/dev/null || true
+                                        DOCKER_GID=\$(stat -c '%g' /var/run/docker.sock)
                                         docker run -d --name dashboard-app \\
                                             --restart unless-stopped \\
+                                            --group-add \$DOCKER_GID \\
                                             -p ${APP_PORT}:3000 \\
                                             -v dashboard-data:/app/data \\
                                             -v /var/run/docker.sock:/var/run/docker.sock \\
                                             -e NODE_ENV=production \\
-                                            "\$PREV_IMAGE"
-                                        echo "Rollback амжилттай: \$PREV_IMAGE"
+                                            "\$PREV_ID"
+                                        echo "Rollback амжилттай: \$PREV_ID"
                                     else
                                         echo "Rollback хийх өмнөх image олдсонгүй."
                                     fi
