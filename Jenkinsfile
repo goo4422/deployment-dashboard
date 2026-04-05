@@ -219,7 +219,10 @@ pipeline {
                     try {
                         retry(10) {
                             sleep(time: 10, unit: 'SECONDS')
-                            sh "curl -sf http://${EC2_HOST}:${APP_PORT}/health | grep -q 'ok'"
+                            // EC2 дотроос шалгана — Mac→EC2 network-с хамааралгүй
+                            sshagent(['ec2-ssh']) {
+                                sh "ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} 'curl -sf http://localhost:${APP_PORT}/health | grep -q ok'"
+                            }
                         }
                         env.DURATION_HEALTH = "${((System.currentTimeMillis() - t) / 1000).toInteger()}"
                         echo "Health check амжилттай — апп ажиллаж байна."
