@@ -162,15 +162,10 @@ pipeline {
                     sshagent(['ec2-ssh']) {
                         sh """
                             ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
-                                # Хуучин image ID-г хадгална (tag биш, ID ашиглана — prune-д устахгүй)
-                                PREV_ID=\$(docker inspect dashboard-app --format="{{.Image}}" 2>/dev/null || echo "none")
-                                echo "Previous image ID: \$PREV_ID"
-                                echo "\$PREV_ID" > /tmp/prev-dashboard-image.txt
-
-                                # Rollback-д зориулж тусдаа tag хийнэ (pull-н өмнө)
-                                if [ "\$PREV_ID" != "none" ] && [ -n "\$PREV_ID" ]; then
-                                    docker tag "\$PREV_ID" ${IMAGE_NAME}:rollback 2>/dev/null || true
-                                fi
+                                # Ажиллаж байгаа container-н versioned tag-г авна (Docker Hub-д байнга байна)
+                                PREV_TAG=\$(docker inspect dashboard-app --format="{{range .Config.Env}}{{println .}}{{end}}" 2>/dev/null | grep "^DOCKER_IMAGE=" | cut -d= -f2 || echo "none")
+                                echo "Previous tag: \$PREV_TAG"
+                                echo "\$PREV_TAG" > /tmp/prev-dashboard-image.txt
 
                                 echo "[1/3] Шинэ image татаж байна..."
                                 docker pull ${IMAGE_NAME}:latest
@@ -239,9 +234,10 @@ pipeline {
                         sshagent(['ec2-ssh']) {
                             sh """
                                 ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
-                                    PREV_ID=\$(cat /tmp/prev-dashboard-image.txt 2>/dev/null || echo "none")
-                                    if [ "\$PREV_ID" != "none" ] && [ -n "\$PREV_ID" ]; then
-                                        echo "Rollback: \$PREV_ID рүү буцаж байна..."
+                                    PREV_TAG=\$(cat /tmp/prev-dashboard-image.txt 2>/dev/null || echo "none")
+                                    if [ "\$PREV_TAG" != "none" ] && [ -n "\$PREV_TAG" ]; then
+                                        echo "Rollback: \$PREV_TAG татаж байна..."
+                                        docker pull "\$PREV_TAG"
                                         docker rm -f dashboard-app 2>/dev/null || true
                                         DOCKER_GID=\$(stat -c '%g' /var/run/docker.sock)
                                         docker run -d --name dashboard-app \\
@@ -251,8 +247,8 @@ pipeline {
                                             -v dashboard-data:/app/data \\
                                             -v /var/run/docker.sock:/var/run/docker.sock \\
                                             -e NODE_ENV=production \\
-                                            "\$PREV_ID"
-                                        echo "Rollback амжилттай: \$PREV_ID"
+                                            "\$PREV_TAG"
+                                        echo "Rollback амжилттай: \$PREV_TAG"
                                     else
                                         echo "Rollback хийх өмнөх image олдсонгүй."
                                     fi
