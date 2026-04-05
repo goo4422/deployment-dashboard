@@ -37,9 +37,15 @@ pipeline {
                     sshagent(['ec2-ssh']) {
                         sh """
                             ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
-                                echo "Rollback: ${IMAGE_NAME}:${params.ROLLBACK_VERSION} татаж байна..."
-                                docker pull ${IMAGE_NAME}:${params.ROLLBACK_VERSION}
+                                set -e
 
+                                echo "Image татаж байна: ${IMAGE_NAME}:${params.ROLLBACK_VERSION}"
+                                if ! docker pull ${IMAGE_NAME}:${params.ROLLBACK_VERSION}; then
+                                    echo "АЛДАА: ${params.ROLLBACK_VERSION} image татаж чадсангүй — одоогийн container хэвээр үлдлээ."
+                                    exit 1
+                                fi
+
+                                echo "Pull амжилттай — container солиж байна..."
                                 docker stop dashboard-app 2>/dev/null || true
                                 docker rm   dashboard-app 2>/dev/null || true
 
