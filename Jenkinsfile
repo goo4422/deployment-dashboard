@@ -5,6 +5,10 @@ pipeline {
         nodejs 'nodejs'
     }
 
+    parameters {
+        string(name: 'ROLLBACK_VERSION', defaultValue: '', description: 'Rollback хийх version (жишээ: v58). Хоосон бол ердийн deploy.')
+    }
+
     options {
         timeout(time: 30, unit: 'MINUTES')
         buildDiscarder(logRotator(numToKeepStr: '10'))
@@ -23,7 +27,46 @@ pipeline {
 
     stages {
 
+        stage('Rollback') {
+            when {
+                expression { params.ROLLBACK_VERSION?.trim() }
+            }
+            steps {
+                script {
+                    echo "=== ROLLBACK: ${params.ROLLBACK_VERSION} ==="
+                    sshagent(['ec2-ssh']) {
+                        sh """
+                            ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} '
+                                echo "Rollback: ${IMAGE_NAME}:${params.ROLLBACK_VERSION} татаж байна..."
+                                docker pull ${IMAGE_NAME}:${params.ROLLBACK_VERSION}
+
+                                docker stop dashboard-app 2>/dev/null || true
+                                docker rm   dashboard-app 2>/dev/null || true
+
+                                DOCKER_GID=\$(stat -c "%g" /var/run/docker.sock)
+                                docker run -d --name dashboard-app \\
+                                    --restart unless-stopped \\
+                                    --group-add \$DOCKER_GID \\
+                                    -p ${APP_PORT}:3000 \\
+                                    -v dashboard-data:/app/data \\
+                                    -v /var/run/docker.sock:/var/run/docker.sock \\
+                                    -e NODE_ENV=production \\
+                                    ${IMAGE_NAME}:${params.ROLLBACK_VERSION}
+
+                                echo "Rollback амжилттай: ${params.ROLLBACK_VERSION}"
+                            '
+                        """
+                    }
+                }
+            }
+            post {
+                success { echo "Rollback ${params.ROLLBACK_VERSION} амжилттай боллоо." }
+                failure { echo "Rollback амжилтгүй — version зөв эсэхийг шалгана уу." }
+            }
+        }
+
         stage('Checkout') {
+            when { expression { !params.ROLLBACK_VERSION?.trim() } }
             steps {
                 script {
                     def t = System.currentTimeMillis()
@@ -40,6 +83,7 @@ pipeline {
         }
 
         stage('Install') {
+            when { expression { !params.ROLLBACK_VERSION?.trim() } }
             steps {
                 script {
                     def t = System.currentTimeMillis()
@@ -50,6 +94,7 @@ pipeline {
         }
 
         stage('Test') {
+            when { expression { !params.ROLLBACK_VERSION?.trim() } }
             steps {
                 script {
                     def t = System.currentTimeMillis()
@@ -65,6 +110,7 @@ pipeline {
         }
 
         stage('Docker Build & Push') {
+            when { expression { !params.ROLLBACK_VERSION?.trim() } }
             steps {
                 script {
                     // Build: login + buildx builder тохиргоо
@@ -102,7 +148,7 @@ pipeline {
 
         stage('Deploy to EC2') {
             when {
-                expression { env.GIT_BRANCH_NAME == 'main' || env.GIT_BRANCH_NAME == 'master' }
+                expression { !params.ROLLBACK_VERSION?.trim() && (env.GIT_BRANCH_NAME == 'main' || env.GIT_BRANCH_NAME == 'master') }
             }
             steps {
                 script {
@@ -159,7 +205,7 @@ pipeline {
 
         stage('Health Check') {
             when {
-                expression { env.GIT_BRANCH_NAME == 'main' || env.GIT_BRANCH_NAME == 'master' }
+                expression { !params.ROLLBACK_VERSION?.trim() && (env.GIT_BRANCH_NAME == 'main' || env.GIT_BRANCH_NAME == 'master') }
             }
             steps {
                 script {
