@@ -16,7 +16,7 @@ pipeline {
         APP_NAME   = 'deployment-dashboard'
         DOCKER_HUB = credentials('dockerhub-credentials')
         IMAGE_NAME = "${DOCKER_HUB_USR}/${APP_NAME}"
-        EC2_HOST   = '54.254.157.75'
+        EC2_HOST   = '47.128.145.46'
         EC2_USER   = 'ubuntu'
         APP_PORT   = '3000'
     }
