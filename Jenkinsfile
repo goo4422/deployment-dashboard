@@ -56,6 +56,7 @@ pipeline {
                                     -v dashboard-data:/app/data \\
                                     -v /var/run/docker.sock:/var/run/docker.sock \\
                                     -e NODE_ENV=production \\
+                                    -e DOCKER_IMAGE=${IMAGE_NAME}:${params.ROLLBACK_VERSION} \\
                                     ${IMAGE_NAME}:${params.ROLLBACK_VERSION}
 
                                 echo "Rollback амжилттай: ${params.ROLLBACK_VERSION}"
@@ -237,7 +238,10 @@ pipeline {
                                     PREV_TAG=\$(cat /tmp/prev-dashboard-image.txt 2>/dev/null || echo "none")
                                     if [ "\$PREV_TAG" != "none" ] && [ -n "\$PREV_TAG" ]; then
                                         echo "Rollback: \$PREV_TAG татаж байна..."
-                                        docker pull "\$PREV_TAG"
+                                        if ! docker pull "\$PREV_TAG"; then
+                                            echo "АЛДАА: \$PREV_TAG татаж чадсангүй — rollback хийгдсэнгүй."
+                                            exit 1
+                                        fi
                                         docker rm -f dashboard-app 2>/dev/null || true
                                         DOCKER_GID=\$(stat -c '%g' /var/run/docker.sock)
                                         docker run -d --name dashboard-app \\
@@ -247,6 +251,7 @@ pipeline {
                                             -v dashboard-data:/app/data \\
                                             -v /var/run/docker.sock:/var/run/docker.sock \\
                                             -e NODE_ENV=production \\
+                                            -e DOCKER_IMAGE="\$PREV_TAG" \\
                                             "\$PREV_TAG"
                                         echo "Rollback амжилттай: \$PREV_TAG"
                                     else
