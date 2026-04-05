@@ -46,8 +46,7 @@ pipeline {
                                 fi
 
                                 echo "Pull амжилттай — container солиж байна..."
-                                docker stop dashboard-app 2>/dev/null || true
-                                docker rm   dashboard-app 2>/dev/null || true
+                                docker rm -f dashboard-app 2>/dev/null || true
 
                                 DOCKER_GID=\$(stat -c "%g" /var/run/docker.sock)
                                 docker run -d --name dashboard-app \\
@@ -176,9 +175,8 @@ pipeline {
                                 echo "[1/3] Шинэ image татаж байна..."
                                 docker pull ${IMAGE_NAME}:latest
 
-                                echo "[2/3] Хуучин container зогсооно..."
-                                docker stop dashboard-app 2>/dev/null || true
-                                docker rm   dashboard-app 2>/dev/null || true
+                                echo "[2/3] Хуучин container устгана..."
+                                docker rm -f dashboard-app 2>/dev/null || true
 
                                 echo "[3/3] Шинэ container эхлүүлнэ..."
                                 DOCKER_GID=\$(stat -c '%g' /var/run/docker.sock)
@@ -244,8 +242,7 @@ pipeline {
                                     PREV_ID=\$(cat /tmp/prev-dashboard-image.txt 2>/dev/null || echo "none")
                                     if [ "\$PREV_ID" != "none" ] && [ -n "\$PREV_ID" ]; then
                                         echo "Rollback: \$PREV_ID рүү буцаж байна..."
-                                        docker stop dashboard-app 2>/dev/null || true
-                                        docker rm   dashboard-app 2>/dev/null || true
+                                        docker rm -f dashboard-app 2>/dev/null || true
                                         DOCKER_GID=\$(stat -c '%g' /var/run/docker.sock)
                                         docker run -d --name dashboard-app \\
                                             --restart unless-stopped \\
